@@ -90,16 +90,26 @@ public class TestActivity extends AppCompatActivity implements LockContract.View
         mPresenter.svmTrain();
     }
 
-    @OnClick(R.id.button_train)
+  /*  @OnClick(R.id.button_train)
     public void train() {
         mPresenter.trainData();
         Toast.makeText(this, "Training Start", Toast.LENGTH_SHORT).show();
-    }
+    }*/
 
+
+    @Override
+    public void clear() {
+
+    }
 
     @Override
     public void unlockSuccess() {
 
+    }
+
+    @Override
+    public InputStream getInputStream(String fileName) {
+        return null;
     }
 
     @Override

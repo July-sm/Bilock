@@ -114,13 +114,14 @@ public class MainActivity extends AppCompatActivity implements LockContract.View
     //清空textView
     @OnClick(R.id.button_clear)
     public void clear() {
-        mPresenter.trainData();
+       // mPresenter.trainData();
 
         if (tvShowModeNumber.getText().length() != 0) {
             tvShowModeNumber.setText("");
         } else Toast.makeText(this, "Already Clear", Toast.LENGTH_SHORT).show();
 
-        new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/WaveFile").delete();
+        //new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/WaveFile").delete();
+        new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/Bilock/").delete();
         Toast.makeText(this, "Delete Success", Toast.LENGTH_SHORT).show();
     }
 

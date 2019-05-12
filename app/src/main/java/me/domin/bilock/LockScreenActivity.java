@@ -142,8 +142,8 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
                     public void onClick(DialogPlus dialog, View view) {
                         switch (view.getId()){
                             case R.id.yes:
-                                Intent intent = new Intent(LockScreenActivity.this,StartActivity.class);
-                                startActivity(intent);
+                                //Intent intent = new Intent(LockScreenActivity.this,StartActivity.class);
+                                //startActivity(intent);
                                 String username = "user";
                                 String path = LockPresenter.absolutePath + "/Bilock/" + username + File.separator;
                                 File file = new File(path);
@@ -225,7 +225,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         imageView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startActivity(intentToMain);
+  //              startActivity(intentToMain);
 
             }
         });
@@ -303,7 +303,8 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     })
     void askForPermission() {
         if (!mPresenter.hasModel())
-            startActivity(intentToMain);
+            ;
+     //       startActivity(intentToMain);
     }
 
     private void shake() {

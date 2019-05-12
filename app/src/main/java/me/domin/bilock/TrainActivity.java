@@ -40,17 +40,34 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import butterknife.BindDrawable;
+import butterknife.BindView;
+import butterknife.ButterKnife;
+
 public class TrainActivity extends AppCompatActivity {
 
     private static final int NUM_CHANGE = 1;
     private static final int NUM_MAX = 2;
+
+    @BindView(R.id.finish)
     ShineButton shineButton;
+
+    @BindView(R.id.image)
     ImageView imageView;
+
+    @BindView(R.id.hint_text)
     TextView hintText;
+
+    @BindView(R.id.finish_text)
     TextView finishText;
+
     WaveDrawable waveDrawable;
+
+    @BindView(R.id.tickerView)
     TickerView tickerView;
+
     private String username = "user";
+    //需写入util
     public String path = LockPresenter.absolutePath + "/Bilock/" + username + File.separator;
 
     Handler handler = new Handler() {
@@ -93,16 +110,14 @@ public class TrainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_train);
+        ButterKnife.bind(this);
         ActionBar actionBar = getSupportActionBar();
         actionBar.hide();
 
-        shineButton = findViewById(R.id.finish);
+
         shineButton.init(this);
-        finishText = findViewById(R.id.finish_text);
-        hintText = findViewById(R.id.hint_text);
-        tickerView = findViewById(R.id.tickerView);
         tickerView.setCharacterLists(TickerUtils.provideNumberList());
-        imageView = findViewById(R.id.image);
+
         waveDrawable = new WaveDrawable(getDrawable(R.drawable.bilock_logo));
         imageView.setImageDrawable(waveDrawable);
         waveDrawable.setWaveSpeed(10);

@@ -6,11 +6,11 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
-import com.stephentuso.welcome.WelcomeHelper;
+import com.stephentuso.welcome.WelcomeHelper;   //开场动画
 
 import java.io.File;
 
-import me.wangyuwei.particleview.ParticleView;
+import me.wangyuwei.particleview.ParticleView;    //开场动画
 
 public class StartActivity extends AppCompatActivity {
 
@@ -18,6 +18,7 @@ public class StartActivity extends AppCompatActivity {
     private WelcomeHelper welcomeHelper;
     private ParticleView particleView;
     String username = "user";
+    //文件路径，需写入util
     String path = LockPresenter.absolutePath + "/Bilock/" + username + File.separator;
 
     @Override

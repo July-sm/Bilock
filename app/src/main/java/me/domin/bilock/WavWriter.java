@@ -259,15 +259,15 @@ class WavWriter {
         //大于阈值视为牙齿咬合声音
 //        if (index - 1 < 0 )
 //            if (index + 1 < buffer.length)
-        Log.e(TAG, "pushAudioShortNew: max = " + max);
+//        Log.e(TAG, "pushAudioShortNew: max = " + max);
 //        Log.e(TAG, "pushAudioShortNew: average = " + average);
 //        Log.e(TAG, "pushAudioShortNew: average * 1.5 = " + average * 13);
 
         if (index - 1 > 0 && index + 1 < buffer.length)
             if (max > MIN_NOISE && max > buffer[index - 1] && max > buffer[index + 1]) {
 
-//            Log.e(TAG, "pushAudioShortNew: max = " + max);
-//            Log.e(TAG, "pushAudioShortNew: index = " + index);
+            Log.e(TAG, "pushAudioShortNew: max = " + max);
+            Log.e(TAG, "pushAudioShortNew: index = " + index);
 //
 //            for (int i = 0; i < buffer.length; i++) {
 //                Log.e(TAG, "pushAudioShortNew: buffer = " + buffer[i]);
@@ -276,14 +276,15 @@ class WavWriter {
 
                 if (index - 100 < 0) {
                     //往上一个数组取100-index个
-                    for (int i = buffer.length - index + 100 - 1; i < buffer.length; i++) {
-                        list.add(buffer[i]);
+                    for (int i = bytesOld.length -(100-index-1); i < bytesOld.length; i++) {
+                        list.add(bytesOld[i]);
                     }
                     //剩下的index+200在当前数组取
                     for (int i = 0; i <= index + 200; i++) {
                         list.add(buffer[i]);
                     }
                     max = 0;
+                    rest=0;
                     return -1;
                     //大于当前数组大小
                 } else if (index + 201 > buffer.length) {
@@ -293,10 +294,11 @@ class WavWriter {
                     rest = index + 200 - buffer.length;
                     //当前足够
                 } else {
-                    for (int i = index - 100; i <= index + 200; i++) {
+                    for (int i = index - 100 + 1; i <= index + 200; i++) {
                         list.add(buffer[i]);
                     }
                     max = 0;
+                    rest =0;
                     return -1;
                 }
             }

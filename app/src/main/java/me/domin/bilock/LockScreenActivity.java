@@ -60,7 +60,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     private static final String TAG = "LockScreen";
     ShimmerTextView mShimmerTextView;
 //    WaveView waveView;
-    Vibrator vibrator;
+    Vibrator vibrator;  //手机震动器
     Intent intentToMain;
     LockPresenter mPresenter;
     CircleButton button;

@@ -107,25 +107,6 @@ public class LockPresenter implements LockContract.Presenter {
         currentRecordTask.execute();
     }
 
-    @Override
-    public void trainData() {
-        Executor executor = new ThreadPoolExecutor(10, 50, 10,
-                TimeUnit.SECONDS, new LinkedBlockingDeque<Runnable>(100));
-//        TrainDataTask modelTask = new TrainDataTask();
-//        modelTask.executeOnExecutor(executor, "ModeRecord");
-        File[] testFiles = new File(absolutePath + File.separator + "ModeRecord").listFiles();
-        for (File testFile : testFiles) {
-            TrainDataTask trainDataTask = new TrainDataTask();
-            trainDataTask.executeOnExecutor(executor, testFile);
-        }
-//        TrainDataTask testTask = new TrainDataTask();
-//        testTask.executeOnExecutor(executor, "ljw2");
-//        TrainDataTask testTask3 = new TrainDataTask();
-//        testTask3.executeOnExecutor(executor, "yym");
-//        TrainDataTask testTask4 = new TrainDataTask();
-//        testTask4.executeOnExecutor(executor, "zm");
-
-    }
 
     @Override
     public void startRecord() {
@@ -146,51 +127,7 @@ public class LockPresenter implements LockContract.Presenter {
         recordTask.stop();
     }
 
-    //用于训练模型
-    @Override
-    public void trainModel() throws IOException {
 
-        LinkedList<Double[]> featureList = new LinkedList<>();
-
-        File[] trainFiles = new File(mFileNameMap.get(MODEL_FILE)).listFiles();
-        Log.e(TAG, "writeModel: ModelFiles = " + trainFiles.length);
-        for (int times = 0; times < trainFiles.length; times++) {
-            Double maxFeature = 0.0, minFeature = 0.0;
-
-//            String number = String.valueOf(times);
-//            InputStream in = mLockView.getInputStream("model" + number + ".wav");
-            InputStream in = new FileInputStream(trainFiles[times]);
-
-            double[] signal = getWaveData(in, times);
-            if (signal == null)
-                continue;
-
-            //提取峰值的索引
-            int result[] = getPeaks(signal);
-
-            double[] bufferDouble = getBufferBetween(result[0], result[1], signal);
-
-            //MfCC特征提起
-            Double[] Feature = MFCC.mfcc(dictionaryPath + "model_" + times + ".txt", bufferDouble, bufferDouble.length, 44100);
-//                double[] feature = MFCC.MFCC(bufferDouble, bufferDouble.length, 44100);
-
-            featureList.add(Feature);
-//            normalizationData(maxFeature, minFeature, Feature);
-        }
-        Log.e(TAG, "writeModel: number of model = " + featureList.size());
-
-        //写入测试数据文件
-//        File file = new File(dictionaryPath + "model.txt");
-//        BufferedWriter bw = new BufferedWriter(new FileWriter((file)));
-        BufferedWriter bw = createBufferedWriter(dictionaryPath, "MFCCs_model.txt");
-        //将所有MFCC特征写入文件
-        while (!featureList.isEmpty()) {
-            Double[] feature = featureList.poll();
-            //将数据存入文件
-            writeData(feature, bw);
-        }
-        MFCC.svmTrain();
-    }
 
     @Override
     public boolean hasModel() {

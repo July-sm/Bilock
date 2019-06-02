@@ -28,7 +28,7 @@ public interface LockContract  {
 
         void currentRecord();
 
-        void trainData();
+//        void trainData();
 
         void startRecord();
 
@@ -36,7 +36,7 @@ public interface LockContract  {
 
         void stopRecord();
 
-        void trainModel() throws IOException;
+//        void trainModel() throws IOException;
 
         boolean hasModel();
 

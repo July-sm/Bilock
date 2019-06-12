@@ -145,7 +145,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
                                 //Intent intent = new Intent(LockScreenActivity.this,StartActivity.class);
                                 //startActivity(intent);
                                 String username = "user";
-                                String path = LockPresenter.absolutePath + "/Bilock/" + username + File.separator;
+                                String path = FileUtil.getUserPath();
                                 File file = new File(path);
                                 File[] files = file.listFiles();
                                 for (int i = 0; i < files.length; i++) {
@@ -245,19 +245,6 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     DrawView view;
 
 
-    public void startVoiceRecorder() {
-//        this.mRecorder = new MediaRecorder();
-//        this.mRecorder.setAudioSource(1);
-//        this.mRecorder.setOutputFormat(0);
-//        this.mRecorder.setAudioEncoder(0);
-//        this.mRecorder.setOutputFile("/dev/null");
-//        try {
-//            this.mRecorder.prepare();
-//        } catch (IOException e) {
-//            Log.e("sada", "prepare() failed");
-//        }
-//        this.mRecorder.start();
-    }
 
     private long redraw() {
         long t = System.currentTimeMillis();
@@ -282,7 +269,6 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
 
         LockScreenActivityPermissionsDispatcher.askForPermissionWithPermissionCheck(this);
         this.view = (DrawView) findViewById(R.id.root);
-        startVoiceRecorder();
         new Thread(new Runnable() {
             public void run() {
                 while (LockScreenActivity.this.keepGoing) {
@@ -342,6 +328,5 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         Toast.makeText(LockScreenActivity.this, "Wrong Pin code", Toast.LENGTH_SHORT).show();
         mPresenter.currentRecordTaskNew();
     }
-
 
 }

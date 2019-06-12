@@ -32,13 +32,19 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.Locale;
 import java.util.concurrent.LinkedBlockingQueue;
-
+/*
+    修改时间：2019/6/8
+    修改人：July
+    修改内容：修改写入wav的文件路径，在pushAudioShortNew方法中加入写wav文件的操作。
+ */
 class WavWriter {
     private static final String TAG = "WavWriter";
+    public static final int MODEL=0;
+    public static final int TEST=1;
     private File outPath;
     private OutputStream out;
     private byte[] header = new byte[44];
-    String relativeDir;
+    private int state;
 
     private int channels = 1;
     private byte RECORDER_BPP = 16;  // bits per sample
@@ -47,8 +53,8 @@ class WavWriter {
     private int totalAudioLen = 0;   // bytes of audio raw data
     private int framesWritten = 0;
 
-    WavWriter(String fileName, int sampleRate) {
-        relativeDir = File.separator + fileName;
+    WavWriter(int state, int sampleRate) {
+        this.state=state;
         byteRate = sampleRate * RECORDER_BPP / 8 * channels;
 
         header[0] = 'R';  // RIFF/WAVE header
@@ -97,6 +103,10 @@ class WavWriter {
         header[43] = (byte) ((totalAudioLen >> 24) & 0xff);
     }
 
+    public byte[] getHeader() {
+        return header;
+    }
+
     private static final int version = android.os.Build.VERSION.SDK_INT;
 
     @SuppressLint("NewApi")
@@ -119,17 +129,16 @@ class WavWriter {
         if (!isExternalStorageWritable()) {
             return false;
         }
-        File path = new File(Environment.getExternalStorageDirectory().getPath() + relativeDir);
-        if (!path.exists() && !path.mkdirs()) {
-            Log.e(TAG, "Failed to make directory: " + path.toString());
-            return false;
-        }
+        //File path = new File();
+        //if (!path.exists() && !path.mkdirs()) {
+         //   Log.e(TAG, "Failed to make directory: " + path.toString());
+           // return false;
+        //}
         //改wave名
-        DateFormat df = new SimpleDateFormat("yyyy-MM-dd_HH'h'mm'm'ss.SSS's'", Locale.US);
-        String nowStr = df.format(new Date());
-        String name = "waveRecord";
-        outPath = new File(path, name + ".wav");
-
+        if(state==MODEL)
+            outPath = new File(FileUtil.getFilePathName(FileUtil.MODEL_WAV));
+        else if(state==TEST)
+            outPath= new File(FileUtil.getFilePathName(FileUtil.TEST_WAV));
         Log.e(TAG, "start: out " + outPath.exists() + " " + outPath.getName());
 
         try {
@@ -159,7 +168,7 @@ class WavWriter {
         RandomAccessFile raf;
         try {
             totalAudioLen = framesWritten * RECORDER_BPP / 8 * channels;
-            totalDataLen = header.length + totalAudioLen - 8;
+            totalDataLen=totalAudioLen+36;
             raf = new RandomAccessFile(outPath, "rw");
             raf.seek(4);
             raf.write((byte) ((totalDataLen) & 0xff));
@@ -180,29 +189,6 @@ class WavWriter {
     private byte[] byteBuffer;
 
     // Assume RECORDER_BPP == 16 and channels == 1
-    void pushAudioShort(short[] ss, int numOfReadShort) {
-        if (out == null) {
-            Log.w(TAG, "pushAudioShort(): Error writing " + outPath + "  null pointer");
-            return;
-        }
-        if (byteBuffer == null || byteBuffer.length != ss.length * 2) {
-            byteBuffer = new byte[ss.length * 2];
-        }
-        for (int i = 0; i < numOfReadShort; i++) {
-            byteBuffer[2 * i] = (byte) (ss[i] & 0xff);
-            byteBuffer[2 * i + 1] = (byte) ((ss[i] >> 8) & 0xff);
-        }
-        framesWritten += numOfReadShort;
-
-
-        try {
-            out.write(byteBuffer, 0, numOfReadShort * 2);
-            // if use out.write(byte), then a lot of GC will generated
-        } catch (IOException e) {
-            Log.w(TAG, "pushAudioShort(): Error writing " + outPath, e);
-            out = null;
-        }
-    }
 
     int max = 0;
     int index = 0;
@@ -216,17 +202,17 @@ class WavWriter {
     int pushAudioShortNew(short[] ss, int numOfReadShort) {
 
         int[] buffer = new int[ss.length];
-        int[] byteBuffer = new int[ss.length * 2];
+        byte[] byteBuffer = new byte[ss.length * 2];
 //        if (byteBuffer == null || byteBuffer.length != ss.length * 2) {
 //            byteBuffer = new byte[ss.length * 2];
 //        }
         int sum = 0;
         for (int i = 0; i < numOfReadShort; i++) {
 
-            byteBuffer[2 * i] = ss[i] & 0xff;
+            byteBuffer[2 * i] = (byte)(ss[i] & 0xff);
             byteBuffer[2 * i + 1] = (byte) ((ss[i] >> 8) & 0xff);
 
-            int res = (byteBuffer[2 * i] & 0x000000FF) | ((byteBuffer[2 * i + 1]) << 8);
+            int res = (byteBuffer[2 * i] & 0x000000FF) | ((int)(byteBuffer[2 * i + 1]) << 8);
             buffer[i] = res;
             sum += Math.abs(res);
             if (max < res) {
@@ -237,7 +223,13 @@ class WavWriter {
 
         int average = sum / buffer.length;
 
-        framesWritten += numOfReadShort;
+        try{
+            out.write(byteBuffer);
+            framesWritten += numOfReadShort;
+        }catch(IOException e){
+
+        }
+
 
         if (queue.size() == 0) {
             queue.add(buffer);

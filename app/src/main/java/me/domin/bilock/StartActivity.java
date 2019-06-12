@@ -12,14 +12,19 @@ import java.io.File;
 
 import me.wangyuwei.particleview.ParticleView;    //开场动画
 
+/*
+    修改时间：2019/6/8
+    修改人：July
+    修改内容：修改主目录路径
+ */
 public class StartActivity extends AppCompatActivity {
 
     private static final String TAG = "StartActivity";
     private WelcomeHelper welcomeHelper;
     private ParticleView particleView;
-    String username = "user";
-    //文件路径，需写入util
-    String path = LockPresenter.absolutePath + "/Bilock/" + username + File.separator;
+
+
+    String path = FileUtil.getUserPath();
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {

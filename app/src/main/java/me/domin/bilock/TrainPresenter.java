@@ -35,13 +35,9 @@ import static android.content.ContentValues.TAG;
 public class TrainPresenter implements TrainContract.Presenter{
 
     TrainContract.View view;
-    private String username = "user";
-    //需写入util
-    public String path = LockPresenter.absolutePath + "/Bilock/" + username + File.separator;
 
     public TrainPresenter(TrainContract.View trainView){
         this.view=trainView;
-
     }
     public AudioRecord record;
     int sampleRate = 44100;
@@ -74,7 +70,7 @@ public class TrainPresenter implements TrainContract.Presenter{
 
     }
     class RecordTask implements Runnable {
-        WavWriter wavWriter = new WavWriter("/MFCC/", sampleRate);
+        WavWriter wavWriter = new WavWriter(WavWriter.MODEL, sampleRate);
 
 
         @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
@@ -103,7 +99,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                     buffer[i] = singal[i];
                 }
 
-                DateFormat df = new SimpleDateFormat("yyyy-MM-dd_HH'h'mm'm'ss.SSS's'", Locale.US);
+                /*DateFormat df = new SimpleDateFormat("yyyy-MM-dd_HH'h'mm'm'ss.SSS's'", Locale.US);
                 String nowStr = df.format(new Date());
                 Double[] featureDouble = null;
                 try {
@@ -114,6 +110,24 @@ public class TrainPresenter implements TrainContract.Presenter{
 
                 try {
                     bw = createBufferedWriter(LockPresenter.absolutePath, "/Bilock/" + username + "/" + nowStr + ".txt");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }*/
+
+                /*
+                    修改日期：2019/6/5
+                    修改内容：改变写入的文件路径
+                    修改人：July
+                 */
+                Double[] featureDouble = null;
+                try {
+                    featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.MODEL_RECORD), buffer, singal.length, 44100);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    bw = createBufferedWriter(FileUtil.getFilePathName(FileUtil.MODEL_FEATURE));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -133,6 +147,7 @@ public class TrainPresenter implements TrainContract.Presenter{
             }
 
             record.stop();
+            wavWriter.stop();
             record.release();
             view.finishTrain();
 
@@ -156,8 +171,13 @@ public class TrainPresenter implements TrainContract.Presenter{
                 e.printStackTrace();
             }
         }
-        private BufferedWriter createBufferedWriter(String path, String name) throws IOException {
-            File file = new File(path + name);
+        /*
+            修改日期：2019/6/5
+            内容：改变参数
+            修改人：July
+         */
+        private BufferedWriter createBufferedWriter(String name) throws IOException {
+            File file = new File( name);
             if (!file.getParentFile().exists())
                 file.getParentFile().mkdirs();
             return new BufferedWriter(new FileWriter(file));

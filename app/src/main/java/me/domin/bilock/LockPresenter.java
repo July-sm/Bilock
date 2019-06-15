@@ -38,46 +38,48 @@ import github.bewantbe.audio_analyzer_for_android.STFT;
 import static android.content.ContentValues.TAG;
 
 /**
- * Created by Administrator on 2018/4/14.
+  * @ProjectName:    Bilock
+  * @Package:        me.domin.bilock
+  * @ClassName:      LockPresenter
+  * @Description:    处理锁屏界面 LockScreenActivity 的逻辑业务，包括从移动端获取录音，传递数据给Model，并根据结果更新UI
+  * @Author:         Administrator
+  * @CreateDate:     2018/4/14
+  * @UpdateUser:     July
+  * @UpdateDate:
+  * @UpdateRemark:   将trainData,trainModel等方法移动到TrainPresenter类中，更改写入文件的路径
+  * @Version:        1.0
  */
 
 public class LockPresenter implements LockContract.Presenter {
 
-    int TEST_MFCC_FILE = 1;
-    int CURRENT_TEST_MFCC = 2;
-    int WRITE_MODEL_MFCC = 3;
-    int TEST_DATA_MFCC = 4;
-    int MODEL_FILE = 5;
-    int TEST_FILE = 6;
 
 
     public static String absolutePath = Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/";
     private static String dictionaryPath = absolutePath + "/MFCC2/";
     public STFT stft;   // use with care
 
-    private HashMap<Integer, String> mFileNameMap = new HashMap<>();
-
     private LockContract.View mLockView;
 
 
     private WaveFileReader mWaveReader;
 
+    public LockPresenter(LockContract.View view){
+        mLockView=view;
+    }
+
+    /*载入MFCC的c代码库*/
     static {
         System.loadLibrary("native-lib");
     }
 
     private boolean isRecord = false;
 
-    LockPresenter(LockContract.View lockView) {
-        mLockView = lockView;
-        mFileNameMap.put(TEST_MFCC_FILE, "TestMFCC.txt");
-        mFileNameMap.put(CURRENT_TEST_MFCC, "testRecord.txt");
-        mFileNameMap.put(WRITE_MODEL_MFCC, "model.txt");
-        mFileNameMap.put(TEST_DATA_MFCC, "test.txt");
-        mFileNameMap.put(TEST_FILE, "WaveRecord");
-        mFileNameMap.put(MODEL_FILE, "ModeRecord");
-    }
-
+    /**
+     　　* @Title: initRecorder
+     　　* @Description:    实例化一个AudioRecord对象并开始录音，设置相关参数
+     　　* @param void
+     　　* @return void
+     　　*/
     public void initRecorder() {
         record = new AudioRecord(6, sampleRate, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, 2 * bufferSampleSize);
@@ -140,11 +142,17 @@ public class LockPresenter implements LockContract.Presenter {
     }
 
 
-    //判断录音是否可用
+
+    /**
+     　　* @Title: isRecordSuccess
+     　　* @Description:    判断录音是否可用
+     　　* @param void
+     　　* @return void
+     　　*/
     @Override
     public boolean isRecordSuccess() {
 
-        File file = new File(absolutePath + "TestRecord/waveRecord.wav");
+        File file = new File(FileUtil.getFilePathName(FileUtil.TEST_WAV));
 
         InputStream in = null;
         try {
@@ -177,7 +185,7 @@ public class LockPresenter implements LockContract.Presenter {
         Log.e(TAG, "isRecordSuccess: buffer len = " + bufferBetween.length);
 
         try {
-            BufferedWriter bw = createBufferedWriter(absolutePath + "/singal/"+"touch.txt" );
+            BufferedWriter bw = createBufferedWriter( FileUtil.getFilePathName(FileUtil.TOUCH));
             for (int i = 0; i < bufferBetween.length; i++) {
                 bw.write(bufferBetween[i] + " ");
             }
@@ -258,6 +266,7 @@ public class LockPresenter implements LockContract.Presenter {
 
 
     /*
+                @description: 用于获取BufferedWriter对象
                 修改时间：2019/6/5
                 修改内容：改变参数
                 修改人：July
@@ -295,10 +304,11 @@ public class LockPresenter implements LockContract.Presenter {
 
 
     /**
+     * @description:
      * @param a
      * @param b
      * @param sample
-     * @return
+     * @return double[]
      */
     //得到峰值索引的那一段buffera，双峰值
     private double[] getBufferBetween(int a, int b, double[] sample) {
@@ -373,10 +383,26 @@ public class LockPresenter implements LockContract.Presenter {
                 内容：修改文件路径
                 修改人：July
              */
+    
+    /**
+     　　* @ClassName: CurrentRecordTaskNew
+     　　* @Description: 用于读取录音数据，用WavWriter处理数据并提取特征，判断是否合法
+     　　* @author Administrator
+     　　* ${tags}
+     　　*/
+
+    
     class CurrentRecordTaskNew extends AsyncTask<Void, Boolean, Void> {
         WavWriter wavWriter = new WavWriter(WavWriter.TEST, sampleRate);
 
         @Override
+        /**  
+            * @Title: doInBackground   
+        　　* @Description: 相当于run方法，完成读取录音数据并进行处理的功能
+        　　* @param [voids]       
+        　　* @return java.lang.Void       
+        　　* @throws   
+        　　*/
         protected Void doInBackground(Void... voids) {
 //            int bufferSampleSize = Math.max(minBytes / 2, fftlen / 2) * 2;
             wavWriter.start();
@@ -384,6 +410,7 @@ public class LockPresenter implements LockContract.Presenter {
 
             int num = 0;
             //max < MAX_NOISE
+            //一直读取录音数据，直到获取两个在阈值范围内的峰值，视作牙齿咬合声音
             while (num != 2 && isRecord) {
                 numOfReadShort = record.read(audioSamples, 0, readChunkSize);   // pulling
                 max = wavWriter.pushAudioShortNew(audioSamples, numOfReadShort);  // Maybe move this to another thread?
@@ -400,11 +427,13 @@ public class LockPresenter implements LockContract.Presenter {
                 record.release();
                 return null;
             }
+            //获取wavWriter提取好的声音峰值
             int[] singal = wavWriter.getSignal();
 
             BufferedWriter bw = null;
             stop();
 
+            //将int类型的声音数据转换为double类型数据
             double[] buffer = new double[singal.length];
             for (int i = 0; i < singal.length; i++) {
                 buffer[i] = singal[i];
@@ -420,6 +449,7 @@ public class LockPresenter implements LockContract.Presenter {
 //                e.printStackTrace();
 //            }
 
+            //用MFCC获取声音的特征值，存入featureDouble数组中
             Double[] featureDouble = null;
             try {
                 featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.TEST_RECORD), buffer, singal.length, 44100);
@@ -440,6 +470,8 @@ public class LockPresenter implements LockContract.Presenter {
 //            Log.d(TAG, "writeModel: flag = " + flag + " len = " + feature.length);
             writeData(featureDouble, bw);
 
+
+            //调用svmPredict方法判断特征是否合法，并调用publishProgress更新结果
             try {
                 if ((MFCC.svmPredict(FileUtil.getFilePathName(FileUtil.TEST_FEATURE))) == 1) {
                     publishProgress(true);
@@ -455,12 +487,18 @@ public class LockPresenter implements LockContract.Presenter {
         }
 
         @Override
+        /**
+            * @Title: onProgressUpdate
+        　　* @Description: 根据publishProgress方法传入的value值更新UI线程
+        　　* @param [values]
+        　　* @return void
+        　　* @throws
+        　　*/
         protected void onProgressUpdate(Boolean... values) {
             if (values[0])
                 mLockView.unlockSuccess();
             else mLockView.unlockFail();
         }
-
         void stop() {
             wavWriter.stop();
         }

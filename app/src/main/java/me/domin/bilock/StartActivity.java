@@ -57,6 +57,13 @@ public class StartActivity extends AppCompatActivity {
     }
 
     @Override
+    /**
+        * @Title: onActivityResult
+    　　* @Description: Activity结束时会调用的方法，此处在结束时开启TeachActivity
+    　　* @param [requestCode, resultCode, data]
+    　　* @return void
+    　　* @throws
+    　　*/
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         startTeachActivity();

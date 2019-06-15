@@ -80,6 +80,7 @@ public class LockPresenter implements LockContract.Presenter {
      　　* @param void
      　　* @return void
      　　*/
+
     public void initRecorder() {
         record = new AudioRecord(6, sampleRate, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, 2 * bufferSampleSize);

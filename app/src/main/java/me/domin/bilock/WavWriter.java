@@ -51,8 +51,15 @@ class WavWriter {
     private int byteRate;            // Average bytes per second
     private int totalDataLen = 0;   // (file size) - 8
     private int totalAudioLen = 0;   // bytes of audio raw data
+    //记录录音的长度，单位为帧，一帧所占字节数即为声音进度所对应的一单位的字节数（如精度为16bit，则一帧长度为16bit）
     private int framesWritten = 0;
 
+    /**
+        * @Title: WavWriter
+    　　* @Description: 该构造函数初始化wav文件的头部信息，包括采样率，采样精度
+    　　* @param  [state][sampleRate] state表示该对象用于处理训练的数据还是测试的数据  sampleRate为采样率
+    　　* @return
+    　　*/
     WavWriter(int state, int sampleRate) {
         this.state=state;
         byteRate = sampleRate * RECORDER_BPP / 8 * channels;
@@ -124,7 +131,12 @@ class WavWriter {
         }
         return (double) byteLeft / byteRate;
     }
-
+    /**
+        * @Title: start()
+    　　* @Description: 初始化wav文件的写入路径及输出流
+    　　* @param
+    　　* @return
+    　　*/
     boolean start() {
         if (!isExternalStorageWritable()) {
             return false;
@@ -152,6 +164,12 @@ class WavWriter {
         return true;
     }
 
+    /**
+        * @Title: stop
+    　　* @Description: 在录音结束修改wav头部中的文件长度以及数据长度信息
+    　　* @param
+    　　* @return
+    　　*/
     void stop() {
         Log.e(TAG, "stop: out ");
         if (out == null) {
@@ -192,6 +210,8 @@ class WavWriter {
 
     int max = 0;
     int index = 0;
+
+    //MIN_NOISE:判断为牙齿咬合事件的声音最低值，MAX_NOISE：最高值
     int MIN_NOISE = 15000;
     int MAX_NOISE = 30000;
     LinkedBlockingQueue<int[]> queue = new LinkedBlockingQueue<>();
@@ -207,6 +227,7 @@ class WavWriter {
 //            byteBuffer = new byte[ss.length * 2];
 //        }
         int sum = 0;
+        //将short数组转换成byte数组
         for (int i = 0; i < numOfReadShort; i++) {
 
             byteBuffer[2 * i] = (byte)(ss[i] & 0xff);
@@ -227,15 +248,12 @@ class WavWriter {
             out.write(byteBuffer);
             framesWritten += numOfReadShort;
         }catch(IOException e){
-
         }
-
 
         if (queue.size() == 0) {
             queue.add(buffer);
             return max;
         }
-
         int[] bytesOld = queue.poll();
 
         //当需要向下一个buffer组取剩余的值

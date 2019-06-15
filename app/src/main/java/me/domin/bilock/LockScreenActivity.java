@@ -79,6 +79,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
             .build();
 
     //创建SoundPool对象
+    @SuppressLint("NewApi")
     SoundPool soundPool = new SoundPool.Builder()
             //设置音效池属性
             .setAudioAttributes(audioAttributes)
@@ -134,7 +135,9 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
 //                return false;
 //            }
 //        });
-
+        /*
+            创建一个更换用户对话，点击是则把原用户数据删除，否则取消
+         */
         final DialogPlus dialog = DialogPlus.newDialog(this)
                 .setContentHolder(new ViewHolder(R.layout.content))
                 .setOnClickListener(new OnClickListener() {
@@ -164,6 +167,9 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
                 .setExpanded(true)  // This will enable the expand feature, (similar to android L share dialog)
                 .create();
         setting.bringToFront();
+        /*
+        将对话绑定到按钮
+         */
         setting.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {

@@ -1,6 +1,8 @@
 package com.example.administrator.mfcc;
 
+import android.os.Build;
 import android.os.Environment;
+import android.support.annotation.RequiresApi;
 import android.util.Log;
 
 import com.google.corp.productivity.specialprojects.android.fft.RealDoubleFFT;
@@ -40,6 +42,7 @@ public class MFCC {
     private static String dictionaryPath = pathName + "/MFCC2/";
 
 
+    @RequiresApi(api = Build.VERSION_CODES.GINGERBREAD)
     public static double[] MFCC(double[] sample, int sampleLen, int sampleRate) {
 //        FRAMES_PER_BUFFER = (int) (sampleRate * 0.025);
         NOT_OVERLAP = (int) pow(2, ceil(log(0.025 * sampleRate) / log(2.0)));

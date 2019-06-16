@@ -146,7 +146,7 @@ public class LockPresenter implements LockContract.Presenter {
 
     /**
      　　* @Title: isRecordSuccess
-     　　* @Description:    判断录音是否可用
+     　　* @Description:    判断录音是否可用，暂时没用到
      　　* @param void
      　　* @return void
      　　*/
@@ -305,13 +305,12 @@ public class LockPresenter implements LockContract.Presenter {
 
 
     /**
-     * @description:
+     * @description:得到峰值索引的那一段buffera，双峰值，暂时也没用
      * @param a
      * @param b
      * @param sample
      * @return double[]
      */
-    //得到峰值索引的那一段buffera，双峰值
     private double[] getBufferBetween(int a, int b, double[] sample) {
 
 //        Log.d(TAG, "getBufferBetween: a = " + a + " b = " + b);
@@ -361,6 +360,7 @@ public class LockPresenter implements LockContract.Presenter {
     public AudioRecord record = null;
     int sampleRate = 44100;
     int fftlen = 1024;
+    //AudioRecord录音需要的最小缓存数组大小
     int minBytes = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT);
     int numOfReadShort;
@@ -432,6 +432,7 @@ public class LockPresenter implements LockContract.Presenter {
             int[] singal = wavWriter.getSignal();
 
             BufferedWriter bw = null;
+            //让wavwriter更新wav文件长度信息
             stop();
 
             //将int类型的声音数据转换为double类型数据

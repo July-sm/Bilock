@@ -32,6 +32,11 @@ import permissions.dispatcher.NeedsPermission;
 
 import static android.content.ContentValues.TAG;
 
+/**
+ 　　* @ClassName: TrainPresenter
+ 　　* @Description: 处理TrainActivity的逻辑业务，实现录音、获取训练样本的功能
+ 　　* @author Administrator
+ 　　*/
 public class TrainPresenter implements TrainContract.Presenter{
 
     TrainContract.View view;
@@ -51,6 +56,12 @@ public class TrainPresenter implements TrainContract.Presenter{
 
     @SuppressLint("SetTextI18n")
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
+    /**
+        * @Title: trainData
+    　　* @Description: 初始化录音器，开启一个线程池，执行RecordTask录音任务。但世界上只用了1个线程
+    　　* @param []
+    　　* @return void
+    　　*/
     public void trainData() {
         //权限
         initRecorder();
@@ -58,6 +69,12 @@ public class TrainPresenter implements TrainContract.Presenter{
         executor.execute(new RecordTask());
     }
     @NeedsPermission({Manifest.permission.RECORD_AUDIO})
+    /**
+        * @Title: initRecorder
+    　　* @Description: 初始化录音器，设置采样值等信息
+    　　* @param []
+    　　* @return void
+    　　*/
     public void initRecorder() {
         record = new AudioRecord(6, sampleRate, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, 2 * bufferSampleSize);
@@ -69,6 +86,11 @@ public class TrainPresenter implements TrainContract.Presenter{
     public void trainModel() {
 
     }
+    /**
+     　　* @ClassName: RecordTask
+     　　* @Description: 用于读取录音数据，用WavWriter处理数据，提取特征，得到10个声音样本
+     　　* @author Administrator
+     　　*/
     class RecordTask implements Runnable {
         WavWriter wavWriter = new WavWriter(WavWriter.MODEL, sampleRate);
 
@@ -79,18 +101,22 @@ public class TrainPresenter implements TrainContract.Presenter{
             wavWriter.start();
             int fileNumber = 0;
 
+            //总共写10个声音文件
             while (fileNumber < 10) {
 
                 int max = 0;
                 int num = 0;
+                //每个声音样本包括2个峰值段，由wavWriter记录
                 while (num != 2) {
                     numOfReadShort = record.read(audioSamples, 0, readChunkSize);   // pulling
                     max = wavWriter.pushAudioShortNew(audioSamples, numOfReadShort);  // Maybe move this to another thread?
+                    //max返回-1表示有提取峰值段
                     if (max == -1)
                         num++;
                 }
 
 
+                //获取刚记录的2个峰值段
                 int[] singal = wavWriter.getSignal();
                 BufferedWriter bw = null;
 
@@ -119,6 +145,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                     修改内容：改变写入的文件路径
                     修改人：July
                  */
+                //提取特征值
                 Double[] featureDouble = null;
                 try {
                     featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.MODEL_RECORD), buffer, singal.length, 44100);

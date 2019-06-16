@@ -318,6 +318,12 @@ class WavWriter {
         return max;
     }
 
+    /**
+        * @Title: getSignal
+    　　* @Description:  返回提取的声音峰值段
+    　　* @param
+    　　* @return    int[]
+    　　*/
     int[] getSignal() {
         int size = list.size();
         int[] singal = new int[size];

@@ -50,6 +50,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 
 import at.markushi.ui.CircleButton;
+import butterknife.BindView;
 import me.wangyuwei.particleview.ParticleView;
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.RuntimePermissions;
@@ -63,12 +64,15 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     Vibrator vibrator;  //手机震动器
     Intent intentToMain;
     LockPresenter mPresenter;
+
     CircleButton button;
     ImageView setting;
     AVLoadingIndicatorView load;
     //    WaveRecordFragment fragment;
     ImageView imageView;
     TextView textView;
+
+
     HashMap musicId = new HashMap();
 
     //设置音效池的属性
@@ -108,13 +112,13 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.lock_layout);
         intentToMain = new Intent(LockScreenActivity.this, MainActivity.class);
-        imageView = findViewById(R.id.profile_image);
-        setting = findViewById(R.id.settings);
 //        fragment = (WaveRecordFragment) getSupportFragmentManager().findFragmentById(R.id.wave_record);
         mPresenter = new LockPresenter(this);
         textView = findViewById(R.id.profile_name);
         button = findViewById(R.id.button);
         load = findViewById(R.id.load);
+        imageView = findViewById(R.id.profile_image);
+        setting = findViewById(R.id.settings);
 //        waveView = findViewById(R.id.waveview);
 
 //        mShimmerTextView = findViewById(R.id.shimmer);
@@ -177,7 +181,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
             }
         });
 
-        button.setOnTouchListener(new View.OnTouchListener() {
+       /* button.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
                 if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
@@ -224,9 +228,10 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
             }
 
         };
-//        localBroadcastManager.registerReceiver(br, intentFilter);
+//        localBroadcastManager.registerReceiver(br, intentFilter);*/
         musicId.put(1, soundPool.load(this, R.raw.unlock, 1));
 
+        //头像图标增加隐藏按钮到MainActivity
         ImageView imageView = findViewById(R.id.profile_image);
         imageView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -242,6 +247,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         soundPool.play((Integer) musicId.get(1), 1, 1, 0, 0, 1);
     }
 
+    //更新UI的间隔
     long REFRESH_INTERVAL_MS = 30;
     private boolean keepGoing = true;
     LinearLayout layout;
@@ -273,7 +279,9 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         mPresenter.initRecorder();
         mPresenter.currentRecordTaskNew();
 
+        //用于申请该活动所有的权限
         LockScreenActivityPermissionsDispatcher.askForPermissionWithPermissionCheck(this);
+        //开启线程，实时更新画面
         this.view = (DrawView) findViewById(R.id.root);
         new Thread(new Runnable() {
             public void run() {
@@ -322,6 +330,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     }
 
     @Override
+    //Toast被动画掩盖，无法正常演示。
     public void unlockSuccess() {
         Toast.makeText(LockScreenActivity.this, "Welcome", Toast.LENGTH_SHORT).show();
         soundOfUnlock();

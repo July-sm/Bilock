@@ -103,6 +103,7 @@ public class TrainActivity extends AppCompatActivity implements TrainContract.Vi
         }
     };
 
+    //随机产生一个10以内的数值，提升用户体验
     double getRandNumber(int num) {
         int rand = (int) (Math.random() * 900);
         double result = num * 10 + (double) rand / 100;
@@ -125,11 +126,13 @@ public class TrainActivity extends AppCompatActivity implements TrainContract.Vi
         shineButton.init(this);
         tickerView.setCharacterLists(TickerUtils.provideNumberList());
 
+        //初始化头像动画
         waveDrawable = new WaveDrawable(getDrawable(R.drawable.bilock_logo));
         imageView.setImageDrawable(waveDrawable);
         waveDrawable.setWaveSpeed(10);
         waveDrawable.setWaveAmplitude(10);
 
+        //初始化数值动画
         tickerView.setText("0%");
         tickerView.setGravity(Gravity.START);
         hintText.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD));
@@ -141,12 +144,24 @@ public class TrainActivity extends AppCompatActivity implements TrainContract.Vi
 
     }
 
+    /**
+        * @Title: changeNum
+    　　* @Description: 更新进度数值，由于动画不能够在子线程更新，此处仍保留用handler传递消息
+    　　* @param  fileNum
+    　　* @return
+    　　*/
     public void changeNum(int fileNum) {
         Message message=new Message();
         message.what=NUM_CHANGE;
         message.obj=fileNum;
         handler.sendMessage(message);
     }
+    /**
+        * @Title: finishTrain
+    　　* @Description: 通知TrainActivity训练完成，保留Handler，理由同上
+    　　* @param
+    　　* @return
+    　　*/
     public void finishTrain(){
        handler.sendEmptyMessage(NUM_MAX);
     }

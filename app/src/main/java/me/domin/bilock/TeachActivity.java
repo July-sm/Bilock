@@ -8,6 +8,12 @@ import android.os.Bundle;
 public class TeachActivity extends AppCompatActivity {
 
     @Override
+    /**
+        * @Title: onCreate
+    　　* @Description: 开启新线程打开TrainActivity
+    　　* @param [savedInstanceState]
+    　　* @return void
+    　　*/
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_teach);

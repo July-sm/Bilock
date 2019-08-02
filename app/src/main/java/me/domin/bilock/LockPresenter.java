@@ -90,8 +90,8 @@ public class LockPresenter implements LockContract.Presenter {
 
     public void stopRecorder() {
         isRecord = false;
-//        record.stop();
-//        record.release();
+        record.stop();
+        record.release();
 
     }
 
@@ -454,7 +454,11 @@ public class LockPresenter implements LockContract.Presenter {
             //用MFCC获取声音的特征值，存入featureDouble数组中
             Double[] featureDouble = null;
             try {
-                featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.TEST_RECORD), buffer, singal.length, 44100);
+                String path=FileUtil.getFilePathName(FileUtil.TEST_RECORD);
+                File file=new File(path);
+                File parent=new File(file.getParent());
+                parent.mkdirs();
+                featureDouble = MFCC.mfcc(file.getAbsolutePath(), buffer, singal.length, 44100);
 //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
             } catch (IOException e) {
                 e.printStackTrace();

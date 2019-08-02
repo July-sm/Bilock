@@ -19,6 +19,7 @@ import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
+import be.tarsos.dsp.io.jvm.WaveformWriter;
 //import be.tarsos.dsp.io.android.AudioDispatcherFactory;
 
 import static android.content.ContentValues.TAG;
@@ -30,6 +31,11 @@ import static java.lang.Math.log;
 import static java.lang.Math.log10;
 import static java.lang.Math.pow;
 
+/**
+    * 修改日志：
+ * @date： 2019/7/31
+ * @content：修改了dictionarypath，订正了mfcc传入的samplesize数值
+　　*/
 public class MFCC {
 
     private static int FRAMES_PER_BUFFER = 512;           //帧长？海明窗大小
@@ -38,8 +44,8 @@ public class MFCC {
     private static final int LEN_SPECTRUM = 2048;   //2的k次幂，与每帧的样本数最接近,输入FFT的数据大小？
     private static final int LEN_MELREC = 13;       //特征维度
     private static final double PI = 3.1415926;
-    private static String pathName = Environment.getExternalStorageDirectory().getAbsolutePath();
-    private static String dictionaryPath = pathName + "/MFCC2/";
+    private static String pathName = Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/";
+    private static String dictionaryPath =Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/";
 
 
     @RequiresApi(api = Build.VERSION_CODES.GINGERBREAD)
@@ -212,7 +218,7 @@ public class MFCC {
     }
 
     public static double svmPredict(String testFile) throws IOException {
-        String predictArgs[] = new String[]{"-b", "0", testFile, dictionaryPath + "data_model.txt", dictionaryPath + "result.txt"};
+        String predictArgs[] = new String[]{"-b", "0", testFile, dictionaryPath + "svm_model.txt", dictionaryPath + "result.txt"};
 //        String predictArgs2[] = new String[]{"-b", "0", dictionaryPath + "model.txt", dictionaryPath + "data_model.txt", dictionaryPath + "result.txt"};
 
         double accuracy = svm_predict.main(predictArgs);
@@ -225,14 +231,15 @@ public class MFCC {
             Log.e(TAG, "LibSvm: accuracy = " + accuracy);
         else Log.d(TAG, "LibSvm: accuracy = " + accuracy);
 
+
         return accuracy;
     }
 
     public static void svmTrain() throws IOException {
 
         svm_train train = new svm_train();
-//        String trainArgs[] = new String[]{"-s", "2","-t","2", dictionaryPath + "model.txt", dictionaryPath + "data_model.txt"};
-        String trainArgs[] = new String[]{dictionaryPath + "MFCCs_model.txt", dictionaryPath + "data_model.txt"};
+  //      String trainArgs[] = new String[]{"-s", "2","-t","2", dictionaryPath + "MFCCs_model.txt", dictionaryPath + "svm_model.txt"};
+        String trainArgs[] = new String[]{dictionaryPath + "MFCCs_model.txt", dictionaryPath + "svm_model.txt"};
 
 //        String scaleArgs[] = new String[]{"-s", dictionaryPath + "model_one.txt" , "-l ", "-1", "-u ", "1", dictionaryPath + "iris.txt"};
 //        String trainArgs[] = new String[]{"-s", "2", fileName + "model_one.txt", fileName + "data.model"};
@@ -244,12 +251,23 @@ public class MFCC {
 //        Log.i(TAG, "LibSvm: " + train.error_msg);
     }
 
+
     public static Double[] mfcc(String absolutePath, double[] bufferDouble, int length, int i) throws IOException {
         int sampleRate = 44100;
         int bufferSize = 1024;
         int bufferOverlap = 512;
+        //声音的采样精度
+        int sampleSizeInBits = 16;
         File file = new File(absolutePath);
+        File fileBefore=new File(file.getParent(),"ORIG_"+file.getName());
         file.getParentFile().mkdirs();
+        //预加重
+        double[] preemp = new double[length];
+        preemp[0] = bufferDouble[0];
+
+        for (int j = 1; j < length; j++)
+            preemp[j] = bufferDouble[j] - 0.95 * bufferDouble[j - 1];
+
         BufferedWriter bw = new BufferedWriter(new FileWriter(file));
 //        DataOutputStream dos = new DataOutputStream(new FileOutputStream(file));
 //        for (double u : bufferDouble
@@ -257,17 +275,19 @@ public class MFCC {
 //            dos.writeDouble(u);
 //            dos.writeUTF(",");
 //        }
-        for (double u : bufferDouble
+        for (double u : preemp
                 ) {
             bw.write(String.valueOf(u));
             bw.write(",");
         }
         bw.flush();
+        bw.close();
+
         InputStream inStream = new FileInputStream(absolutePath);
 //        final float[] floatBuffer = TestUtilities.audioBufferSine();
 //        final AudioDispatcher dispatcher = AudioDispatcherFactory.fromFloatArray(floatBuffer, sampleRate, bufferSize, bufferOverlap);
-        AudioDispatcher dispatcher = new AudioDispatcher(new UniversalAudioInputStream(inStream, new TarsosDSPAudioFormat(sampleRate, bufferSize, 1, true, true)), bufferSize, bufferOverlap);
-        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, 26, 50, 300, 3000);
+        AudioDispatcher dispatcher = new AudioDispatcher(new UniversalAudioInputStream(inStream, new TarsosDSPAudioFormat(sampleRate, sampleSizeInBits, 1, true, true)), bufferSize, bufferOverlap);
+        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, 13, 50, 300, 3000);
         dispatcher.addAudioProcessor(mfcc);
         dispatcher.addAudioProcessor(new AudioProcessor() {
 

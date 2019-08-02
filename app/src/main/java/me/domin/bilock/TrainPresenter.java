@@ -10,12 +10,18 @@ import android.util.Log;
 
 import com.example.administrator.mfcc.MFCC;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -41,6 +47,10 @@ public class TrainPresenter implements TrainContract.Presenter{
 
     TrainContract.View view;
 
+    public final String TAG="TrainPresenter";
+    public final int USER=1;
+    public int type=0;
+
     public TrainPresenter(TrainContract.View trainView){
         this.view=trainView;
     }
@@ -62,8 +72,9 @@ public class TrainPresenter implements TrainContract.Presenter{
     　　* @param []
     　　* @return void
     　　*/
-    public void trainData() {
+    public void trainData(int type) {
         //权限
+        this.type=type;
         initRecorder();
         ExecutorService executor = Executors.newFixedThreadPool(5);
         executor.execute(new RecordTask());
@@ -82,9 +93,34 @@ public class TrainPresenter implements TrainContract.Presenter{
         bufferSampleSize = (int) Math.ceil(1.0 * sampleRate / bufferSampleSize) * bufferSampleSize;
     }
 
+    @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
     @Override
     public void trainModel() {
+        BufferedOutputStream bw;
+        BufferedInputStream br;
+        File modelData=new File(FileUtil.getFilePathName(FileUtil.MODEL_DATA));
+        File[] features=new File(FileUtil.getFilePathName(FileUtil.MODEL_PATH)).listFiles();
+        byte[] buffer=new byte[2048];
+        int length=0;
+        try{
+            bw=new BufferedOutputStream(new FileOutputStream(modelData));
 
+            for(File feature:features) {
+                if (feature.getName().contains("ModelFeature")&&!feature.getName().contains("ORIG")) {
+                    br = new BufferedInputStream(new FileInputStream(feature));
+                    length = br.read(buffer, 0, 1024);
+
+                    bw.write(buffer, 0, length);
+                    br.close();
+                }
+            }
+            bw.flush();
+            bw.close();
+            MFCC.svmTrain();
+            view.finishTrain();
+        }catch (IOException e){
+            Log.e(TAG, "trainModel: error" );
+        }
     }
     /**
      　　* @ClassName: RecordTask
@@ -93,7 +129,7 @@ public class TrainPresenter implements TrainContract.Presenter{
      　　*/
     class RecordTask implements Runnable {
         WavWriter wavWriter = new WavWriter(WavWriter.MODEL, sampleRate);
-
+        WavWriter shortWriter=new WavWriter(WavWriter.MODEL,sampleRate);
 
         @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
         @Override
@@ -116,14 +152,21 @@ public class TrainPresenter implements TrainContract.Presenter{
                 }
 
 
-                //获取刚记录的2个峰值段
-                int[] singal = wavWriter.getSignal();
+                int[] signal = wavWriter.getSignal();
                 BufferedWriter bw = null;
 
-                double[] buffer = new double[singal.length];
-                for (int i = 0; i < singal.length; i++) {
-                    buffer[i] = singal[i];
+
+
+                double[] buffer = new double[signal.length];
+                for (int i = 0; i < signal.length; i++) {
+                    buffer[i] = signal[i];
                 }
+
+
+                wavWriter.list.clear();
+
+
+
 
                 /*DateFormat df = new SimpleDateFormat("yyyy-MM-dd_HH'h'mm'm'ss.SSS's'", Locale.US);
                 String nowStr = df.format(new Date());
@@ -147,16 +190,32 @@ public class TrainPresenter implements TrainContract.Presenter{
                  */
                 //提取特征值
                 Double[] featureDouble = null;
+                 String path=FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
                 try {
-                    featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.MODEL_RECORD), buffer, singal.length, 44100);
+
+                    featureDouble = MFCC.mfcc(path, buffer, signal.length, 44100);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
 
+                //获取刚记录的2个峰值段
+               /* new Thread(){
+                    @Override
+                    public void run() {
+                        super.run();*/
+                        shortWriter.setPathandStart(path.substring(0,path.indexOf(".txt"))+".wav");
+                        shortWriter.write(signal,signal.length);
+                        shortWriter.stop();
+               /*     }
+                }.start();*/
+
+
+
+
                 try {
                     bw = createBufferedWriter(FileUtil.getFilePathName(FileUtil.MODEL_FEATURE));
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    Log.e(TAG, "run: record error");
                 }
                 //将所有MFCC特征写入文件
                 //将数据存入文件
@@ -172,17 +231,19 @@ public class TrainPresenter implements TrainContract.Presenter{
                     e.printStackTrace();
                 }
             }
-
             record.stop();
             wavWriter.stop();
             record.release();
             view.finishTrain();
-
         }
         private void writeData(Double feature[], BufferedWriter bw) {
 
             try {
-                bw.write(1 + " ");
+                if(type==USER)
+                    bw.write(1 + " ");
+                else{
+                    bw.write(-1+" ");
+                }
                 for (int i = 0; i < feature.length; i++) {
                     bw.write((i + 1) + ":" + String.valueOf(feature[i]));
                     if (i != feature.length - 1)
@@ -195,7 +256,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 bw.flush();
 
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(TAG, "writeData: ioexception" );
             }
         }
         /*

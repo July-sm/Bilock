@@ -18,6 +18,7 @@ Date: 2019/6/5
 public class FileUtil {
     public static String absolutePath= Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/";
     public static String userName="user/";
+    public static String otherName="other/";
     public static String temp="temp/";
     public static final int MODEL_RECORD = 1;
     public static final int MODEL_FEATURE = 2;
@@ -26,6 +27,12 @@ public class FileUtil {
     public static final int MODEL_WAV=5;
     public static final int TEST_WAV=6;
     public static final int TOUCH=7;
+    public static final int MODEL_DATA=10;
+    public static final int MODEL_PATH=8;
+    public static final int TEST_PATH=9;
+    public static final int FEATURE_USER_PATH=11;
+    public static final int FEATURE_OTHER_PATH=12;
+
     public static String currentTime="";
 
     private static HashMap<Integer, String> mFileNameMap = new HashMap<Integer, String>(){
@@ -37,6 +44,7 @@ public class FileUtil {
             put(TEST_FEATURE,"TestFeature.txt");
             put(TEST_WAV,"TEST_WAV.wav");
             put(TOUCH,"touch.txt");
+            put(MODEL_DATA,"MFCCs_model.txt");
         }
     };
 
@@ -49,13 +57,21 @@ public class FileUtil {
      */
     public static String getFilePathName(int type){
         switch (type){
-            case 1: return absolutePath+userName+mFileNameMap.get(1);
-            case 2: return absolutePath+userName+getTime()+mFileNameMap.get(2);
+            case 1:
+            case 2:
+            case 5: return absolutePath+userName+getTime()+mFileNameMap.get(type);
             case 3:
-            case 4: return absolutePath+temp+mFileNameMap.get(type);
-            case 5: return absolutePath+userName+getTime()+mFileNameMap.get(5);
-            case 6: return absolutePath+temp+mFileNameMap.get(type);
+            case 4:
+            case 6:
             case 7: return absolutePath+temp+mFileNameMap.get(type);
+
+            case 8:
+            case 11: return absolutePath+userName;
+            case 9: return absolutePath+temp;
+            case 10: return absolutePath+userName+mFileNameMap.get(type);
+            case 12: return absolutePath+userName+otherName;
+
+
 
         }
         return null;

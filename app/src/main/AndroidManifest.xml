@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    tools:replace="android:value"
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -16,22 +16,23 @@
         android:roundIcon="@drawable/bilock_logo"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity" />
-        <activity android:name=".LockScreenActivity"></activity>
-        <activity
-            android:name=".WelcomePage"
-            android:theme="@style/WelcomeScreenTheme" />
-        <activity android:name=".StartActivity">
+        <activity android:name=".Test2Activity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".TrainActivity" />
-        <activity android:name=".TeachActivity">
+        <activity android:name=".MainActivity" />
+        <activity android:name=".LockScreenActivity" />
+        <activity
+            android:name=".WelcomePage"
+            android:theme="@style/WelcomeScreenTheme" />
+        <activity android:name=".StartActivity">
 
         </activity>
+        <activity android:name=".TrainActivity" />
+        <activity android:name=".TeachActivity"></activity>
     </application>
 
 </manifest>

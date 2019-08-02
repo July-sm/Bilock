@@ -7,7 +7,7 @@ public interface TrainContract {
 
     }
     interface Presenter{
-        void trainData();
+        void trainData(int type);
         void trainModel();
     }
 }

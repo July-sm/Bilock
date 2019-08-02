@@ -151,6 +151,8 @@ class WavWriter {
             outPath = new File(FileUtil.getFilePathName(FileUtil.MODEL_WAV));
         else if(state==TEST)
             outPath= new File(FileUtil.getFilePathName(FileUtil.TEST_WAV));
+        File parent=outPath.getParentFile();
+        parent.mkdirs();
         Log.e(TAG, "start: out " + outPath.exists() + " " + outPath.getName());
 
         try {
@@ -202,6 +204,7 @@ class WavWriter {
         } catch (IOException e) {
             Log.w(TAG, "stop(): Error modifying " + outPath, e);
         }
+        framesWritten=0;
     }
 
     private byte[] byteBuffer;
@@ -212,14 +215,14 @@ class WavWriter {
     int index = 0;
 
     //MIN_NOISE:判断为牙齿咬合事件的声音最低值，MAX_NOISE：最高值
-    int MIN_NOISE = 15000;
+    int MIN_NOISE =4000;
     int MAX_NOISE = 30000;
     LinkedBlockingQueue<int[]> queue = new LinkedBlockingQueue<>();
     //    int[] signal = new int[602];
     LinkedList<Integer> list = new LinkedList<>();
     int rest = 0;
 
-    int pushAudioShortNew(short[] ss, int numOfReadShort) {
+    synchronized int pushAudioShortNew(short[] ss, int numOfReadShort) {
 
         int[] buffer = new int[ss.length];
         byte[] byteBuffer = new byte[ss.length * 2];
@@ -241,6 +244,8 @@ class WavWriter {
                 index = i;
             }
         }
+        Log.e(TAG, "pushAudioShortNew: temp max="+max);
+
 
         int average = sum / buffer.length;
 
@@ -318,6 +323,32 @@ class WavWriter {
         return max;
     }
 
+
+    /**
+        * @Title: write
+    　　* @Description: for test, to write signal into wav file
+    　　* @param
+    　　* @return
+    　　*/
+    synchronized void write(int[] signal,int numOfReadShort){
+
+        short[] ss=new short[signal.length];
+        for(int i=0;i<signal.length;i++)
+            ss[i]=(short)signal[i];
+        byte[] byteBuffer=new byte[numOfReadShort*2];
+        for (int i = 0; i < numOfReadShort; i++) {
+
+            byteBuffer[2 * i] = (byte)(ss[i] & 0xff);
+            byteBuffer[2 * i + 1] = (byte) ((ss[i] >> 8) & 0xff);
+
+        }
+        try{
+            out.write(byteBuffer);
+            framesWritten += numOfReadShort;
+        }catch(IOException e){
+        }
+    }
+
     /**
         * @Title: getSignal
     　　* @Description:  返回提取的声音峰值段
@@ -346,5 +377,15 @@ class WavWriter {
     String getPath() {
         return outPath.getPath();
     }
-
+    void setPathandStart(String path){
+        outPath=new File(path);
+        try {
+            out = new FileOutputStream(outPath);
+            out.write(header, 0, 44);
+            // http://developer.android.com/reference/android/os/Environment.html#getExternalStoragePublicDirectory%28java.lang.String%29
+        } catch (IOException e) {
+            Log.w(TAG, "start(): Error writing " + outPath, e);
+            out = null;
+        }
+    }
 }

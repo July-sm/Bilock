@@ -140,7 +140,7 @@ public class TrainActivity extends AppCompatActivity implements TrainContract.Vi
         finishText.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD));
         finishText.getPaint().setFakeBoldText(true);
 
-        mPresenter.trainData();
+        mPresenter.trainData(1);
 
     }
 

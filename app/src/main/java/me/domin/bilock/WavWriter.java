@@ -215,8 +215,14 @@ class WavWriter {
     int index = 0;
 
     //MIN_NOISE:判断为牙齿咬合事件的声音最低值，MAX_NOISE：最高值
-    int MIN_NOISE =4000;
+    int MIN_NOISE =5000;
     int MAX_NOISE = 30000;
+    //截取声音信号的长度
+    int bufferSize=500;
+    //声音最大值前面的长度
+    int backwardSize=200;
+    //声音最大值后面的长度
+    int forwardSize=300;
     LinkedBlockingQueue<int[]> queue = new LinkedBlockingQueue<>();
     //    int[] signal = new int[602];
     LinkedList<Integer> list = new LinkedList<>();
@@ -289,27 +295,27 @@ class WavWriter {
 //            }
 //            Log.e(TAG, "-----------------------------");
 
-                if (index - 100 < 0) {
+                if (index - backwardSize < 0) {
                     //往上一个数组取100-index个
-                    for (int i = bytesOld.length -(100-index-1); i < bytesOld.length; i++) {
+                    for (int i = bytesOld.length -(backwardSize-index-1); i < bytesOld.length; i++) {
                         list.add(bytesOld[i]);
                     }
                     //剩下的index+200在当前数组取
-                    for (int i = 0; i <= index + 200; i++) {
+                    for (int i = 0; i <= index + forwardSize; i++) {
                         list.add(buffer[i]);
                     }
                     max = 0;
                     rest=0;
                     return -1;
                     //大于当前数组大小
-                } else if (index + 201 > buffer.length) {
-                    for (int i = index - 100; i < buffer.length; i++) {
+                } else if (index + forwardSize+1 > buffer.length) {
+                    for (int i = index - backwardSize; i < buffer.length; i++) {
                         list.add(buffer[i]);
                     }
-                    rest = index + 200 - buffer.length;
+                    rest = index + forwardSize - buffer.length;
                     //当前足够
                 } else {
-                    for (int i = index - 100 + 1; i <= index + 200; i++) {
+                    for (int i = index - backwardSize + 1; i <= index + forwardSize; i++) {
                         list.add(buffer[i]);
                     }
                     max = 0;

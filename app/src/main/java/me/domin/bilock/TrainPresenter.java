@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -14,6 +15,10 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -27,6 +32,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.Vector;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -96,30 +102,133 @@ public class TrainPresenter implements TrainContract.Presenter{
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
     @Override
     public void trainModel() {
-        BufferedOutputStream bw;
+       /* BufferedOutputStream bw;
         BufferedInputStream br;
         File modelData=new File(FileUtil.getFilePathName(FileUtil.MODEL_DATA));
         File[] features=new File(FileUtil.getFilePathName(FileUtil.MODEL_PATH)).listFiles();
-        byte[] buffer=new byte[2048];
+        byte[] buffer=new byte[4150];
         int length=0;
+
+        float[][] values=new float[50][MFCC.LEN_MELREC];
+        float[] average=new float[MFCC.LEN_MELREC];
+        int[] user=new int[50];
+        int count=0;
+        double value;
+
+        for(int i=0;i<MFCC.LEN_MELREC;i++)
+            average[i]=0;
         try{
             bw=new BufferedOutputStream(new FileOutputStream(modelData));
-
-            for(File feature:features) {
-                if (feature.getName().contains("ModelFeature")&&!feature.getName().contains("ORIG")) {
+            for(int j=0;j<features.length;j++) {
+                File feature=features[j];
+                if (feature.getName().contains("ModelFeature")&&feature.getName().contains(".txt")&&!feature.getName().contains("ORIG")) {
                     br = new BufferedInputStream(new FileInputStream(feature));
-                    length = br.read(buffer, 0, 1024);
+//                    dis=new DataInputStream(new FileInputStream(feature));
+//                    dis.readInt();
+                    length=br.read(buffer);
 
-                    bw.write(buffer, 0, length);
+                    String str=new String(buffer,0,length);
+                    String[] strs=str.split(" ");
+                    user[count]=Integer.parseInt(strs[0]);
+                    for(int k=0;k<strs.length;k++){
+                        String[] ss=strs[k].split(":");
+                        if(ss.length>=2){
+                            values[count][Integer.parseInt(ss[0])-1]=Float.parseFloat(ss[1]);
+                            average[Integer.parseInt(ss[0])-1]+=Float.parseFloat(ss[1]);
+                        }
+                    }
+                    count++;
+                    //length = br.read(buffer, 0, 1024);
+                    //bw.write(buffer, 0, length);
                     br.close();
+                    //dis.close();
                 }
             }
+            for(int i=0;i<MFCC.LEN_MELREC;i++){
+                average[i]/=count;
+            }
+
+            values=z_score(values,average,count);
+
+            for(int i=1;i<=count;i++){
+                StringBuilder sb=new StringBuilder();
+                sb.append(user[i-1]);
+                sb.append(" ");
+                for(int j=1;j<=MFCC.LEN_MELREC;j++){
+                    sb.append(j);
+                    sb.append(":");
+                    sb.append(values[i-1][j-1]);
+                    sb.append(" ");
+                }
+                sb.append("\r\n");
+                bw.write(sb.toString().getBytes("UTF-8"));
+            }
             bw.flush();
-            bw.close();
+            bw.close();*/
+       try{
             MFCC.svmTrain();
             view.finishTrain();
         }catch (IOException e){
             Log.e(TAG, "trainModel: error" );
+        }
+    }
+
+    private float[][] z_score(float[][] values,float[] average,int count){
+        float[] variance=new float[MFCC.LEN_MELREC];
+
+        for(int i=0;i<count;i++){
+            for(int j=0;j<MFCC.LEN_MELREC;j++){
+                variance[j]+=Math.pow((values[i][j]-average[j]),2);
+            }
+        }
+        for(int j=0;j<MFCC.LEN_MELREC;j++){
+            variance[j]=(float)Math.sqrt((double)variance[j]/count);
+        }
+        for(int i=0;i<count;i++){
+            for(int j=0;j<MFCC.LEN_MELREC;j++){
+                values[i][j]=(values[i][j]-average[j])/variance[j];
+            }
+        }
+
+        return values;
+    }
+
+    public void trainForTest(){
+        File[] files=(new File(Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/")).listFiles();
+
+        FileInputStream fis=null;
+        byte[] buffer=new byte[1024];
+        double[] feature=new double[]
+        int length=0;
+        for(File file:files){
+            try {
+                fis = new FileInputStream(file);
+                fis.skip(44);
+                while((length=fis.read(buffer))!=-1){
+                    for(int i=0;i<length;i=i+2){
+                        feature[i/2]=(buffer[i+1]<<8)+buffer[i];
+                    }
+                }
+                Double[] featureDouble = null;
+                String path=FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
+                try {
+
+                    featureDouble = MFCC.mfcc(path,   , feature.length, 44100);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    bw = createBufferedWriter(FileUtil.getFilePathName(FileUtil.MODEL_FEATURE));
+                } catch (IOException e) {
+                    Log.e(TAG, "run: record error");
+                }
+                //将所有MFCC特征写入文件
+                //将数据存入文件
+                writeData(featureDouble, bw);
+            }catch (IOException e){
+                Log.e(TAG, "trainForTest: error while reading wav files");
+            }
         }
     }
     /**

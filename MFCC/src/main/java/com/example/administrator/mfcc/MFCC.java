@@ -35,14 +35,15 @@ import static java.lang.Math.pow;
     * 修改日志：
  * @date： 2019/7/31
  * @content：修改了dictionarypath，订正了mfcc传入的samplesize数值
+ *
 　　*/
 public class MFCC {
 
     private static int FRAMES_PER_BUFFER = 512;           //帧长？海明窗大小
     private static int NOT_OVERLAP;                 //每帧的样本数
-    private static final int NUM_FILTER = 40;       //滤波器的数目
+    private static final int NUM_FILTER = 50;       //滤波器的数目
     private static final int LEN_SPECTRUM = 2048;   //2的k次幂，与每帧的样本数最接近,输入FFT的数据大小？
-    private static final int LEN_MELREC = 13;       //特征维度
+    public static final int LEN_MELREC = 13;       //特征维度
     private static final double PI = 3.1415926;
     private static String pathName = Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/";
     private static String dictionaryPath =Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/";
@@ -52,7 +53,6 @@ public class MFCC {
     public static double[] MFCC(double[] sample, int sampleLen, int sampleRate) {
 //        FRAMES_PER_BUFFER = (int) (sampleRate * 0.025);
         NOT_OVERLAP = (int) pow(2, ceil(log(0.025 * sampleRate) / log(2.0)));
-
         double[] preemp = new double[sampleLen];
         preemp[0] = sample[0];
         //预加重：去出声带和嘴唇造成的效应，来补偿语音信号中被压抑的高频部分，并能突出高频的共振峰
@@ -218,6 +218,7 @@ public class MFCC {
     }
 
     public static double svmPredict(String testFile) throws IOException {
+       testFile=Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/test.txt";
         String predictArgs[] = new String[]{"-b", "0", testFile, dictionaryPath + "svm_model.txt", dictionaryPath + "result.txt"};
 //        String predictArgs2[] = new String[]{"-b", "0", dictionaryPath + "model.txt", dictionaryPath + "data_model.txt", dictionaryPath + "result.txt"};
 
@@ -287,7 +288,7 @@ public class MFCC {
 //        final float[] floatBuffer = TestUtilities.audioBufferSine();
 //        final AudioDispatcher dispatcher = AudioDispatcherFactory.fromFloatArray(floatBuffer, sampleRate, bufferSize, bufferOverlap);
         AudioDispatcher dispatcher = new AudioDispatcher(new UniversalAudioInputStream(inStream, new TarsosDSPAudioFormat(sampleRate, sampleSizeInBits, 1, true, true)), bufferSize, bufferOverlap);
-        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, 13, 50, 300, 3000);
+        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, LEN_MELREC, 50, 300, 3000);
         dispatcher.addAudioProcessor(mfcc);
         dispatcher.addAudioProcessor(new AudioProcessor() {
 

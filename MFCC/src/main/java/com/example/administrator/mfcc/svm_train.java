@@ -135,7 +135,7 @@ public class svm_train {
 
 	private static double atof(String s)
 	{
-		double d = Double.valueOf(s).doubleValue();
+ 		double d = Double.valueOf(s).doubleValue();
 //		Log.d(TAG, "atof: double = " + d);
 		if (Double.isNaN(d) || Double.isInfinite(d))
 		{

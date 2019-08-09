@@ -20,6 +20,7 @@ import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
 import be.tarsos.dsp.io.jvm.WaveformWriter;
+import uk.me.berndporr.iirj.Butterworth;
 //import be.tarsos.dsp.io.android.AudioDispatcherFactory;
 
 import static android.content.ContentValues.TAG;
@@ -31,6 +32,7 @@ import static java.lang.Math.log;
 import static java.lang.Math.log10;
 import static java.lang.Math.pow;
 
+
 /**
     * 修改日志：
  * @date： 2019/7/31
@@ -38,12 +40,11 @@ import static java.lang.Math.pow;
  *
 　　*/
 public class MFCC {
-
     private static int FRAMES_PER_BUFFER = 512;           //帧长？海明窗大小
     private static int NOT_OVERLAP;                 //每帧的样本数
     private static final int NUM_FILTER = 50;       //滤波器的数目
     private static final int LEN_SPECTRUM = 2048;   //2的k次幂，与每帧的样本数最接近,输入FFT的数据大小？
-    public static final int LEN_MELREC = 13;       //特征维度
+    public static final int LEN_MELREC = 26;       //特征维度
     private static final double PI = 3.1415926;
     private static String pathName = Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/";
     private static String dictionaryPath =Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/";
@@ -218,7 +219,7 @@ public class MFCC {
     }
 
     public static double svmPredict(String testFile) throws IOException {
-       testFile=Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/test.txt";
+       //testFile=Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/test.txt";
         String predictArgs[] = new String[]{"-b", "0", testFile, dictionaryPath + "svm_model.txt", dictionaryPath + "result.txt"};
 //        String predictArgs2[] = new String[]{"-b", "0", dictionaryPath + "model.txt", dictionaryPath + "data_model.txt", dictionaryPath + "result.txt"};
 
@@ -262,6 +263,19 @@ public class MFCC {
         File file = new File(absolutePath);
         File fileBefore=new File(file.getParent(),"ORIG_"+file.getName());
         file.getParentFile().mkdirs();
+
+        //butterworth filter
+        Butterworth butterworth=new Butterworth();
+        butterworth.lowPass(6,sampleRate,15000);
+        for(int j=0;j<length;j++){
+            bufferDouble[j]=butterworth.filter(bufferDouble[j]);
+        }
+        butterworth=new Butterworth();
+        butterworth.highPass(6,44100,10);
+        for(int j=0;j<length;j++){
+            bufferDouble[j]=butterworth.filter(bufferDouble[j]);
+        }
+
         //预加重
         double[] preemp = new double[length];
         preemp[0] = bufferDouble[0];
@@ -308,7 +322,6 @@ public class MFCC {
         for (int j = 0; j < data.length; j++) {
             data2[j] = (double) data[j];
         }
-
         return data2;
     }
 

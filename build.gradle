@@ -45,6 +45,7 @@ allprojects {
         maven {
             url 'http://search.maven.org/#artifactdetails%7Cuk.me.berndporr%7Ciirj%7C1.1%7Cjar'
         }
+
     }
 }
 

@@ -102,21 +102,26 @@ public class TrainPresenter implements TrainContract.Presenter{
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
     @Override
     public void trainModel() {
-       /* BufferedOutputStream bw;
+        BufferedOutputStream bw;
         BufferedInputStream br;
         File modelData=new File(FileUtil.getFilePathName(FileUtil.MODEL_DATA));
         File[] features=new File(FileUtil.getFilePathName(FileUtil.MODEL_PATH)).listFiles();
         byte[] buffer=new byte[4150];
         int length=0;
 
-        float[][] values=new float[50][MFCC.LEN_MELREC];
-        float[] average=new float[MFCC.LEN_MELREC];
+        double[][] values=new double[50][MFCC.LEN_MELREC];
         int[] user=new int[50];
         int count=0;
         double value;
 
-        for(int i=0;i<MFCC.LEN_MELREC;i++)
+        for(int i=0;i<MFCC.LEN_MELREC;i++){
             average[i]=0;
+            max[i]=-9999;
+            min[i]=9999;
+            sum[i]=0;
+            sd[i]=0;
+        }
+
         try{
             bw=new BufferedOutputStream(new FileOutputStream(modelData));
             for(int j=0;j<features.length;j++) {
@@ -133,8 +138,13 @@ public class TrainPresenter implements TrainContract.Presenter{
                     for(int k=0;k<strs.length;k++){
                         String[] ss=strs[k].split(":");
                         if(ss.length>=2){
-                            values[count][Integer.parseInt(ss[0])-1]=Float.parseFloat(ss[1]);
-                            average[Integer.parseInt(ss[0])-1]+=Float.parseFloat(ss[1]);
+                            int index=Integer.parseInt(ss[0])-1;
+                            double feature_value=Float.parseFloat(ss[1]);
+                            values[count][index]=feature_value;
+                            sum[index]+=feature_value;
+                            sd[index]+=feature_value*feature_value;
+                            max[index]=max[index]>feature_value?max[index]:feature_value;
+                            min[index]=min[index]<feature_value?min[index]:feature_value;
                         }
                     }
                     count++;
@@ -145,10 +155,14 @@ public class TrainPresenter implements TrainContract.Presenter{
                 }
             }
             for(int i=0;i<MFCC.LEN_MELREC;i++){
-                average[i]/=count;
+                average[i]=sum[i]/count;
+                sd[i]=Math.sqrt(sd[i]);
             }
 
-            values=z_score(values,average,count);
+           // values=z_score(values,average,count);
+           // values=mean_normal(values,min,max,count);
+           // values=sum_normal(values,sum,count);
+            values=sd_normal(values,sd,count);
 
             for(int i=1;i<=count;i++){
                 StringBuilder sb=new StringBuilder();
@@ -164,8 +178,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 bw.write(sb.toString().getBytes("UTF-8"));
             }
             bw.flush();
-            bw.close();*/
-       try{
+            bw.close();
             MFCC.svmTrain();
             view.finishTrain();
         }catch (IOException e){
@@ -173,8 +186,56 @@ public class TrainPresenter implements TrainContract.Presenter{
         }
     }
 
-    private float[][] z_score(float[][] values,float[] average,int count){
-        float[] variance=new float[MFCC.LEN_MELREC];
+
+    static double[] variance=new double[MFCC.LEN_MELREC];
+    static double[] average=new double[MFCC.LEN_MELREC];
+    static double[] max=new double[MFCC.LEN_MELREC];
+    static double[] min=new double[MFCC.LEN_MELREC];
+    static double[] sum=new double[MFCC.LEN_MELREC];
+    static double[] sd=new double[MFCC.LEN_MELREC];
+    private double[][] sum_normal(double[][] values,double[] sum,int numOfSample){
+        for(int i=0;i<numOfSample;i++){
+            for(int j=0;j<MFCC.LEN_MELREC;j++){
+                values[i][j]=values[i][j]/sum[j];
+            }
+        }
+        return values;
+    }
+    private double[][] sd_normal(double[][] values,double[] sd,int numOfSample){
+        for(int i=0;i<numOfSample;i++){
+            for(int j=0;j<MFCC.LEN_MELREC;j++){
+                values[i][j]=values[i][j]/sd[j];
+            }
+        }
+        return values;
+    }
+
+    /**
+        * @Title:    mean_normal  均值归一化
+    　　* @Description: 对特征值进行均值归一化的处理，
+    　　* @param
+    　　* @return
+    　　*/
+    private double[][] mean_normal(double
+                                           [][] values,double[] min,double[] max,int numOfSample){
+        for(int i=0;i<numOfSample;i++){
+            for(int j=0;j<MFCC.LEN_MELREC;j++){
+                values[i][j]=(values[i][j]-min[j])/(max[j]-min[j]);
+            }
+        }
+        return values;
+    }
+    /**
+        * @Title: z_score
+    　　* @Description: 对特征值进行z_score处理，即(value-average)/variance，以减少某些特征值带来的影响
+    　　* @param
+            values：特征值
+            average：每个特征的均值
+            count：声音样本的总数
+    　　* @return    处理后的特征值
+    　　*/
+    private double[][] z_score(double[][] values,double[] average,int count){
+
 
         for(int i=0;i<count;i++){
             for(int j=0;j<MFCC.LEN_MELREC;j++){
@@ -182,7 +243,7 @@ public class TrainPresenter implements TrainContract.Presenter{
             }
         }
         for(int j=0;j<MFCC.LEN_MELREC;j++){
-            variance[j]=(float)Math.sqrt((double)variance[j]/count);
+            variance[j]=(double)Math.sqrt((double)variance[j]/count);
         }
         for(int i=0;i<count;i++){
             for(int j=0;j<MFCC.LEN_MELREC;j++){
@@ -193,44 +254,7 @@ public class TrainPresenter implements TrainContract.Presenter{
         return values;
     }
 
-    public void trainForTest(){
-        File[] files=(new File(Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/user/")).listFiles();
 
-        FileInputStream fis=null;
-        byte[] buffer=new byte[1024];
-        double[] feature=new double[]
-        int length=0;
-        for(File file:files){
-            try {
-                fis = new FileInputStream(file);
-                fis.skip(44);
-                while((length=fis.read(buffer))!=-1){
-                    for(int i=0;i<length;i=i+2){
-                        feature[i/2]=(buffer[i+1]<<8)+buffer[i];
-                    }
-                }
-                Double[] featureDouble = null;
-                String path=FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
-                try {
-
-                    featureDouble = MFCC.mfcc(path,   , feature.length, 44100);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    bw = createBufferedWriter(FileUtil.getFilePathName(FileUtil.MODEL_FEATURE));
-                } catch (IOException e) {
-                    Log.e(TAG, "run: record error");
-                }
-                //将所有MFCC特征写入文件
-                //将数据存入文件
-                writeData(featureDouble, bw);
-            }catch (IOException e){
-                Log.e(TAG, "trainForTest: error while reading wav files");
-            }
-        }
-    }
     /**
      　　* @ClassName: RecordTask
      　　* @Description: 用于读取录音数据，用WavWriter处理数据，提取特征，得到10个声音样本

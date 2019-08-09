@@ -205,6 +205,7 @@ public class LockPresenter implements LockContract.Presenter {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        featureDouble=mean_normal(featureDouble);
 //        normalizationData(maxBuffer, minBuffer, featureDouble);
 
 //        File file2 = new File(dictionaryPath + "testRecord.txt");
@@ -379,6 +380,23 @@ public class LockPresenter implements LockContract.Presenter {
         }
         return max;
     }
+
+    private Double[] mean_normal(Double[] feature){
+        double[] max=TrainPresenter.max;
+        double[] min=TrainPresenter.min;
+        for(int i=0;i<MFCC.LEN_MELREC;i++){
+            feature[i]=(feature[i]-min[i])/(max[i]-min[i]);
+        }
+        return feature;
+    }
+    private double[] z_score(double[] feature){
+        double[] variance=TrainPresenter.variance;
+        double[] average=TrainPresenter.average;
+        for(int i=0;i<MFCC.LEN_MELREC;i++){
+            feature[i]=(feature[i]-average[i])/variance[i];
+        }
+        return feature;
+    }
     /*
                 修改日期：2019/6/8
                 内容：修改文件路径
@@ -471,9 +489,15 @@ public class LockPresenter implements LockContract.Presenter {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+
+            //对MFCC特征做处理
+            featureDouble=sd_normal(featureDouble);
+
+
             //将所有MFCC特征写入文件
             //将数据存入文件
 //            Log.d(TAG, "writeModel: flag = " + flag + " len = " + feature.length);
+
             writeData(featureDouble, bw);
 
 
@@ -490,6 +514,37 @@ public class LockPresenter implements LockContract.Presenter {
 
 
             return null;
+        }
+
+        private Double[] sd_normal(Double[] feature){
+            double[] sd=TrainPresenter.sd;
+            for(int i=0;i<MFCC.LEN_MELREC;i++){
+                feature[i]=feature[i]/sd[i];
+            }
+            return feature;
+        }
+        private Double[] sum_normal(Double[] feature){
+            double[] sum=TrainPresenter.sum;
+            for(int i=0;i<MFCC.LEN_MELREC;i++){
+                feature[i]=feature[i]/sum[i];
+            }
+            return feature;
+        }
+        private Double[] mean_normal(Double[] feature){
+            double[] max=TrainPresenter.max;
+            double[] min=TrainPresenter.min;
+            for(int i=0;i<MFCC.LEN_MELREC;i++){
+                feature[i]=(feature[i]-min[i])/(max[i]-min[i]);
+            }
+            return feature;
+        }
+        private Double[] z_score(Double[] feature){
+            double[] variance=TrainPresenter.variance;
+            double[] average=TrainPresenter.average;
+            for(int i=0;i<MFCC.LEN_MELREC;i++){
+                feature[i]=(feature[i]-average[i])/variance[i];
+            }
+            return feature;
         }
 
         @Override

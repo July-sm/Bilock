@@ -397,7 +397,8 @@ public abstract class TarsosDSPAudioFloatConverter {
             int len = out_offset + out_len;
             for (int ox = out_offset; ox < len; ox++) {
                 out_buff[ox] = ((short) ((in_buff[ix++] & 0xFF) | 
-                           (in_buff[ix++] << 8))) * (1.0f / 32767.0f);
+                           (in_buff[ix++] << 8))) ;
+                //* (1.0f / 32767.0f);
             }
 
             return out_buff;

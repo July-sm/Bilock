@@ -1,9 +1,5 @@
 package be.tarsos.dsp;
 
-import be.tarsos.dsp.AudioEvent;
-import be.tarsos.dsp.AudioProcessor;
-import be.tarsos.dsp.GainProcessor;
-
 public class FadeOut implements AudioProcessor
 {
 	// VARIABLES

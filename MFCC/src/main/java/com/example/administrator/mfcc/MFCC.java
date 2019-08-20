@@ -8,6 +8,7 @@ import android.util.Log;
 import com.google.corp.productivity.specialprojects.android.fft.RealDoubleFFT;
 
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -19,7 +20,7 @@ import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
-import be.tarsos.dsp.io.jvm.WaveformWriter;
+
 import uk.me.berndporr.iirj.Butterworth;
 //import be.tarsos.dsp.io.android.AudioDispatcherFactory;
 
@@ -254,7 +255,7 @@ public class MFCC {
     }
 
 
-    public static Double[] mfcc(String absolutePath, double[] bufferDouble, int length, int i) throws IOException {
+    public static Double[] mfcc(String absolutePath, byte[] bufferByte, int length, int i) throws IOException {
         int sampleRate = 44100;
         int bufferSize = 1024;
         int bufferOverlap = 512;
@@ -265,19 +266,9 @@ public class MFCC {
         file.getParentFile().mkdirs();
 
         //butterworth filter
-        Butterworth butterworth=new Butterworth();
-        butterworth.lowPass(6,sampleRate,15000);
-        for(int j=0;j<length;j++){
-            bufferDouble[j]=butterworth.filter(bufferDouble[j]);
-        }
-        butterworth=new Butterworth();
-        butterworth.highPass(6,44100,10);
-        for(int j=0;j<length;j++){
-            bufferDouble[j]=butterworth.filter(bufferDouble[j]);
-        }
 
         //预加重
-        double[] preemp = new double[length];
+/*        double[] preemp = new double[length];
         preemp[0] = bufferDouble[0];
 
         for (int j = 1; j < length; j++)
@@ -296,13 +287,15 @@ public class MFCC {
             bw.write(",");
         }
         bw.flush();
-        bw.close();
+        bw.close();*/
 
-        InputStream inStream = new FileInputStream(absolutePath);
+        ByteArrayInputStream bis=new ByteArrayInputStream(bufferByte,0,length*2);
+
+       // InputStream inStream = new FileInputStream(absolutePath);
 //        final float[] floatBuffer = TestUtilities.audioBufferSine();
 //        final AudioDispatcher dispatcher = AudioDispatcherFactory.fromFloatArray(floatBuffer, sampleRate, bufferSize, bufferOverlap);
-        AudioDispatcher dispatcher = new AudioDispatcher(new UniversalAudioInputStream(inStream, new TarsosDSPAudioFormat(sampleRate, sampleSizeInBits, 1, true, true)), bufferSize, bufferOverlap);
-        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, LEN_MELREC, 50, 300, 3000);
+        AudioDispatcher dispatcher = new AudioDispatcher(new UniversalAudioInputStream(bis, new TarsosDSPAudioFormat(sampleRate, sampleSizeInBits, 1, true, false)), bufferSize, bufferOverlap);
+        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, LEN_MELREC, 26, 300, 3000,20);
         dispatcher.addAudioProcessor(mfcc);
         dispatcher.addAudioProcessor(new AudioProcessor() {
 

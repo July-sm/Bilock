@@ -57,6 +57,16 @@ public class TrainPresenter implements TrainContract.Presenter{
     public final int USER=1;
     public int type=0;
 
+    public static final int NONE=0;
+    public static final int Z_SCORE=1;
+    public static final int SUM=2;
+    public static final int MEAN=3;
+    public static final int SD=4;
+
+    static double[][] values;
+    static int[] user;
+    static int count;
+
     public TrainPresenter(TrainContract.View trainView){
         this.view=trainView;
     }
@@ -101,17 +111,17 @@ public class TrainPresenter implements TrainContract.Presenter{
 
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
     @Override
-    public void trainModel() {
+    public void trainModel(int normal_type) {
         BufferedOutputStream bw;
         BufferedInputStream br;
         File modelData=new File(FileUtil.getFilePathName(FileUtil.MODEL_DATA));
         File[] features=new File(FileUtil.getFilePathName(FileUtil.MODEL_PATH)).listFiles();
-        byte[] buffer=new byte[4150];
+        byte[] buffer=new byte[10240];
         int length=0;
 
-        double[][] values=new double[50][MFCC.LEN_MELREC];
-        int[] user=new int[50];
-        int count=0;
+       values=new double[200][MFCC.LEN_MELREC];
+       user=new int[200];
+        count=0;
         double value;
 
         for(int i=0;i<MFCC.LEN_MELREC;i++){
@@ -158,11 +168,14 @@ public class TrainPresenter implements TrainContract.Presenter{
                 average[i]=sum[i]/count;
                 sd[i]=Math.sqrt(sd[i]);
             }
+            switch(normal_type){
+                case Z_SCORE:   values=z_score(values,average,count);break;
+                case MEAN: values=mean_normal(values,min,max,count);break;
+                case SUM:     values=sum_normal(values,sum,count);break;
+                case SD: values=sd_normal(values,sd,count);break;
+                default:;
+            }
 
-           // values=z_score(values,average,count);
-           // values=mean_normal(values,min,max,count);
-           // values=sum_normal(values,sum,count);
-            values=sd_normal(values,sd,count);
 
             for(int i=1;i<=count;i++){
                 StringBuilder sb=new StringBuilder();
@@ -290,9 +303,10 @@ public class TrainPresenter implements TrainContract.Presenter{
 
 
 
-                double[] buffer = new double[signal.length];
+                byte[] buffer = new byte[signal.length*2];
                 for (int i = 0; i < signal.length; i++) {
-                    buffer[i] = signal[i];
+                    buffer[2*i]=(byte)(signal[i]&0xff);
+                    buffer[2*i+1]=(byte)((signal[i]>>8)&0xff);
                 }
 
 

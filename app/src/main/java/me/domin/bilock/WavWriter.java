@@ -215,14 +215,14 @@ class WavWriter {
     int index = 0;
 
     //MIN_NOISE:判断为牙齿咬合事件的声音最低值，MAX_NOISE：最高值
-    int MIN_NOISE =5000;
+    int MIN_NOISE =2500;
     int MAX_NOISE = 30000;
     //截取声音信号的长度
-    int bufferSize=500;
+    int bufferSize=300;
     //声音最大值前面的长度
-    int backwardSize=200;
+    int backwardSize=100;
     //声音最大值后面的长度
-    int forwardSize=300;
+    int forwardSize=200;
     LinkedBlockingQueue<int[]> queue = new LinkedBlockingQueue<>();
     //    int[] signal = new int[602];
     LinkedList<Integer> list = new LinkedList<>();

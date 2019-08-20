@@ -38,6 +38,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     api files('libs/libsvm.jar')
     api project(path: ':FFTLibrary')
-    implementation files('libs/TarsosDSP-nightly.jar')
+
     implementation group: 'uk.me.berndporr', name:'iirj', version: '1.1'
 }

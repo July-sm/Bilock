@@ -1,7 +1,6 @@
 package be.tarsos.dsp.granulator;
 
 
-import java.util.ArrayList;
 import java.util.Arrays;
 
 import be.tarsos.dsp.AudioEvent;

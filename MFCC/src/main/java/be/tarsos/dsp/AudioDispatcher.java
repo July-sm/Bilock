@@ -418,7 +418,11 @@ public class AudioDispatcher implements Runnable {
 				for(int i = offsetInBytes + totalBytesRead; i < audioByteBuffer.length; i++){
 					audioByteBuffer[i] = 0;
 				}
-				converter.toFloatArray(audioByteBuffer, offsetInBytes, audioFloatBuffer, offsetInSamples, floatStepSize);
+				if(isFirstBuffer){
+					converter.toFloatArray(audioByteBuffer, offsetInBytes, audioFloatBuffer, offsetInSamples, floatStepSize+floatOverlap);
+				}else {
+					converter.toFloatArray(audioByteBuffer, offsetInBytes, audioFloatBuffer, offsetInSamples, floatStepSize);
+				}
 			}else{
 				// Send a smaller buffer through the chain.
 				byte[] audioByteBufferContent = audioByteBuffer;

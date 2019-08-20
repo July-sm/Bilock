@@ -1,10 +1,13 @@
 package me.domin.bilock;
 
+import android.annotation.SuppressLint;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Environment;
+import android.support.annotation.RequiresApi;
 import android.util.Log;
 import android.widget.Toast;
 //import com.chrischen.waveview.WaveView;
@@ -22,7 +25,9 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -36,6 +41,11 @@ import java.util.concurrent.TimeUnit;
 import github.bewantbe.audio_analyzer_for_android.STFT;
 
 import static android.content.ContentValues.TAG;
+import static me.domin.bilock.TrainPresenter.MEAN;
+import static me.domin.bilock.TrainPresenter.NONE;
+import static me.domin.bilock.TrainPresenter.SD;
+import static me.domin.bilock.TrainPresenter.SUM;
+import static me.domin.bilock.TrainPresenter.Z_SCORE;
 
 /**
   * @ProjectName:    Bilock
@@ -199,13 +209,13 @@ public class LockPresenter implements LockContract.Presenter {
             修改内容：改变文件路径
             修改人：July
          */
-        try {
-            featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.TEST_RECORD), bufferBetween, bufferBetween.length, 44100);
+     /*   try {
+            featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.TEST_RECORD),buffer , bufferBetween.length, 44100);
 //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
         } catch (IOException e) {
             e.printStackTrace();
-        }
-        featureDouble=mean_normal(featureDouble);
+        }*/
+//        featureDouble=mean_normal(featureDouble);
 //        normalizationData(maxBuffer, minBuffer, featureDouble);
 
 //        File file2 = new File(dictionaryPath + "testRecord.txt");
@@ -215,8 +225,10 @@ public class LockPresenter implements LockContract.Presenter {
             修改内容：改变文件路径
             修改人：July
          */
+
+        String path=FileUtil.getFilePathName(FileUtil.TEST_FEATURE);
         try {
-            bw = createBufferedWriter(FileUtil.getFilePathName(FileUtil.TEST_FEATURE));
+            bw = createBufferedWriter(path);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -226,7 +238,7 @@ public class LockPresenter implements LockContract.Presenter {
         writeData(featureDouble, bw);
 
         try {
-            return (MFCC.svmPredict(FileUtil.getFilePathName(FileUtil.TEST_FEATURE))) == 1;
+            return (MFCC.svmPredict(path)) == 1;
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -235,6 +247,8 @@ public class LockPresenter implements LockContract.Presenter {
 
         return false;
     }
+
+
 
     @Override
     public void writeModel() throws IOException {
@@ -286,7 +300,6 @@ public class LockPresenter implements LockContract.Presenter {
     private void writeData(Double feature[], BufferedWriter bw) {
 
         try {
-            bw.write(1 + " ");
             for (int i = 0; i < feature.length; i++) {
                 bw.write((i + 1) + ":" + String.valueOf(feature[i]));
                 if (i != feature.length - 1)
@@ -381,22 +394,6 @@ public class LockPresenter implements LockContract.Presenter {
         return max;
     }
 
-    private Double[] mean_normal(Double[] feature){
-        double[] max=TrainPresenter.max;
-        double[] min=TrainPresenter.min;
-        for(int i=0;i<MFCC.LEN_MELREC;i++){
-            feature[i]=(feature[i]-min[i])/(max[i]-min[i]);
-        }
-        return feature;
-    }
-    private double[] z_score(double[] feature){
-        double[] variance=TrainPresenter.variance;
-        double[] average=TrainPresenter.average;
-        for(int i=0;i<MFCC.LEN_MELREC;i++){
-            feature[i]=(feature[i]-average[i])/variance[i];
-        }
-        return feature;
-    }
     /*
                 修改日期：2019/6/8
                 内容：修改文件路径
@@ -414,6 +411,7 @@ public class LockPresenter implements LockContract.Presenter {
     class CurrentRecordTaskNew extends AsyncTask<Void, Boolean, Void> {
         WavWriter wavWriter = new WavWriter(WavWriter.TEST, sampleRate);
 
+        @SuppressLint("NewApi")
         @Override
         /**  
             * @Title: doInBackground   
@@ -447,21 +445,22 @@ public class LockPresenter implements LockContract.Presenter {
                 return null;
             }
             //获取wavWriter提取好的声音峰值
-            int[] singal = wavWriter.getSignal();
+            int[] signal = wavWriter.getSignal();
 
             BufferedWriter bw = null;
             //让wavwriter更新wav文件长度信息
             stop();
 
             //将int类型的声音数据转换为double类型数据
-            double[] buffer = new double[singal.length];
-            for (int i = 0; i < singal.length; i++) {
-                buffer[i] = singal[i];
+            byte[] buffer = new byte[signal.length*2];
+            for (int i = 0; i < signal.length; i++) {
+                buffer[2*i]=(byte)(signal[i]&0xff);
+                buffer[2*i+1]=(byte)((signal[i]>>8)&0xff);
             }
 
 //            try {
-//                bw = createBufferedWriter(absolutePath + "/singal/", "air.txt");
-//                for (int i = 0; i < singal.length; i++) {
+//                bw = createBufferedWriter(absolutePath + "/signal/", "air.txt");
+//                for (int i = 0; i < signal.length; i++) {
 //                    bw.write(buffer[i] + " ");
 //                }
 //                bw.flush();
@@ -476,7 +475,7 @@ public class LockPresenter implements LockContract.Presenter {
                 File file=new File(path);
                 File parent=new File(file.getParent());
                 parent.mkdirs();
-                featureDouble = MFCC.mfcc(file.getAbsolutePath(), buffer, singal.length, 44100);
+                featureDouble = MFCC.mfcc(file.getAbsolutePath(), buffer, signal.length, 44100);
 //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -484,14 +483,12 @@ public class LockPresenter implements LockContract.Presenter {
 //        normalizationData(maxBuffer, minBuffer, featureDouble);
 
 //        File file2 = new File(dictionaryPath + "testRecord.txt");
+            String path=FileUtil.getFilePathName(FileUtil.TEST_FEATURE);
             try {
-                bw = createBufferedWriter(FileUtil.getFilePathName(FileUtil.TEST_FEATURE));
+                bw = createBufferedWriter(path);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
-            //对MFCC特征做处理
-            featureDouble=sd_normal(featureDouble);
 
 
             //将所有MFCC特征写入文件
@@ -502,20 +499,68 @@ public class LockPresenter implements LockContract.Presenter {
 
 
             //调用svmPredict方法判断特征是否合法，并调用publishProgress更新结果
-            try {
-                if ((MFCC.svmPredict(FileUtil.getFilePathName(FileUtil.TEST_FEATURE))) == 1) {
+           /* try {
+                if ((MFCC.svmPredict(path)) == 1) {
                     publishProgress(true);
                 } else {
                     publishProgress(false);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            }
+            }*/
+
+           if(KNN(featureDouble,NONE)){
+               publishProgress(true);
+           }else {
+               publishProgress(false);
+           }
 
 
             return null;
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.N)
+        public boolean KNN(Double[] features,final int normal_type){
+            switch(normal_type){
+                case Z_SCORE:  features=z_score(features);break;
+                case MEAN: features=mean_normal(features);break;
+                case SUM:    features=sum_normal(features);break;
+                case SD: features=sd_normal(features);break;
+                default:;
+            }
+            double[][] values=TrainPresenter.values;
+            int[] user=TrainPresenter.user;
+            ArrayList list=new ArrayList();
+            for(int i=0;i<TrainPresenter.count;i++){
+                Test2Activity.Point p=new Test2Activity.Point(values[i],user[i]);
+                p.calDis(features);
+                list.add(p);
+            }
+            list.sort(new Comparator() {
+                @Override
+                public int compare(Object o, Object t1) {
+                    double dis1=((Test2Activity.Point)o).distance;
+                    double dis2=((Test2Activity.Point)t1).distance;
+                    if(dis1>dis2)
+                        return 1;
+                    else if(dis1==dis2)
+                        return 0;
+                    else
+                        return -1;
+                }
+            });
+            int count=0;
+            for(int i=0;i<10;i++){
+                if(((Test2Activity.Point)list.get(i)).user==1)
+                    count++;
+                else
+                    count--;
+            }
+            if(count>=0)
+                return true;
+            else
+                return false;
+        }
         private Double[] sd_normal(Double[] feature){
             double[] sd=TrainPresenter.sd;
             for(int i=0;i<MFCC.LEN_MELREC;i++){

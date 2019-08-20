@@ -8,6 +8,6 @@ public interface TrainContract {
     }
     interface Presenter{
         void trainData(int type);
-        void trainModel();
+        void trainModel(int normal_type);
     }
 }

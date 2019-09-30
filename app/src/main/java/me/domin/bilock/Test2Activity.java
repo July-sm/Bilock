@@ -15,12 +15,14 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.administrator.mfcc.MFCC;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -74,10 +76,19 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     Button bt_other_offline;
     @BindView(R.id.bt_test_offline)
     Button bt_test_offline;
-
+    @BindView(R.id.bt_sample)
+    Button bt_sample;
+    @BindView(R.id.et_min_noise)
+    EditText et_min_noise;
+    @BindView(R.id.bt_set)
+    Button bt_set;
+    @BindView(R.id.tv_max)
+    TextView tv_max;
 
     static final public int CHANGE_NUM=0,MAX=1;
     static final public int USER=1,OTHER=2;
+    static final public int TEST_FINISH=3;
+    static final public int CHANGE_MAX=4;
     Handler handler=new Handler(){
         @Override
         public void handleMessage(Message msg) {
@@ -88,6 +99,14 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     break;
                 case MAX:
                     toast("train finish!");
+                    bt_record.setEnabled(true);
+                    bt_other.setEnabled(true);
+                    break;
+                case TEST_FINISH:
+                    bt_test.setEnabled(true);
+                    break;
+                case CHANGE_MAX:
+                    tv_max.setText("max:"+(int)msg.obj);
 
             }
         }
@@ -122,34 +141,64 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                 rightRate=0;
             }
         });
+        bt_clear_other.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                File noise_train=new File(FileUtil.absolutePath+"/data/noise/train");
+                File noise_test=new File(FileUtil.absolutePath+"/data/noise/test");
+                for(File file:noise_test.listFiles()){
+                    file.delete();
+                }
+                for(File file:noise_train.listFiles()){
+                    file.delete();
+                }
+                toast("clear other sample");
+            }
+        });
+        bt_clear_user.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                File user_train=new File(FileUtil.absolutePath+"/data/user/train");
+                File user_test=new File(FileUtil.absolutePath+"/data/user/test/");
+                for(File file:user_test.listFiles()){
+                    file.delete();
+                }
+                for(File file:user_train.listFiles()){
+                    file.delete();
+                }
+                toast("clear user sample");
+            }
+        });
         bt_record.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 mPresenter.trainData(USER);
+                bt_record.setEnabled(false);
             }
         });
         bt_other.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 mPresenter.trainData(OTHER);
+                bt_other.setEnabled(false);
             }
         });
         bt_train.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 toast("start training!");
-                mPresenter.trainModel(NONE);
+                mPresenter.trainModel(Z_SCORE );
             }
         });
 
         bt_test.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                toast("test start!");
+                /*toast("test start!");
                  lockPresenter.initRecorder();
                 lockPresenter.currentRecordTaskNew();
-               // testForTest();
-
+                bt_test.setEnabled(false);*/
+                testForTest(USER,NONE);
             }
         });
         bt_user_offline.setOnClickListener(new View.OnClickListener() {
@@ -168,9 +217,80 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
             @Override
             public void onClick(View view) {
                 train();
-                //testForTest();
+                //testForTest(OTHER,NONE);
             }
         });
+        bt_sample.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                getPeak();
+            }
+        });
+        bt_set.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                WavWriter.MIN_NOISE=Integer.parseInt(et_min_noise.getText().toString());
+                toast("Min Volume:"+WavWriter.MIN_NOISE);
+            }
+        });
+    }
+
+    private void getPeak(){
+        File source=new File(FileUtil.absolutePath+"/source/");
+        FileInputStream fis=null;
+        WavWriter wavWriter=new WavWriter(WavWriter.MODEL,44100);
+        WavWriter peakWriter=new WavWriter(WavWriter.MODEL,44100);
+
+        byte[] buffer=new byte[1024];
+        int length=0;
+        int file_index=0;
+        File[] sounds=source.listFiles();
+        wavWriter.start();
+        for(File sound:sounds){
+            file_index++;
+            try{
+
+                fis=new FileInputStream(sound);
+                fis.skip(44);
+                int max=0;
+                int num=0;
+                while((length=fis.read(buffer))!=-1&&num!=2){
+                    short[] shorts=new short[(length+1)/2];
+                    for(int i=0;i<length/2;i++) {
+                        shorts[i] = (short) ((buffer[2 * i] & 0x000000FF) | ((int) (buffer[2 * i + 1]) << 8));
+                    }
+                    max=wavWriter.pushAudioShortNew(shorts,shorts.length);
+                    if(max==-1){
+                        num++;
+                    }
+                }
+
+                if(num!=2){
+                    wavWriter.list.clear();
+                    continue;
+                }
+
+                int[] signal = wavWriter.getSignal();
+
+                wavWriter.list.clear();
+
+
+
+                String path=FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
+
+                if(signal.length>0) {
+                    peakWriter.setPathandStart(path.substring(0, path.indexOf(".txt")) + file_index+".wav");
+                    peakWriter.write(signal, signal.length);
+                    peakWriter.stop();
+                }
+
+            }catch(IOException e){
+                toast("IOException");
+            }
+
+        }
+        wavWriter.stop();
+
     }
 
     private Double[] sd_normal(Double[] feature){
@@ -225,6 +345,31 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         bw.close();
         return filename;
     }
+
+
+    public void testForTest(){
+        File parent=new File(FileUtil.getFilePathName(FileUtil.TEST_PATH));
+        File[] testFeature=parent.listFiles();
+
+        try{
+            for(File feature:testFeature){
+                if ((MFCC.svmPredict(feature.getAbsolutePath()) == 1)) {
+                    //toast("Unlock successfully!");
+                    right++;
+                    total++;
+                    updateData();
+                } else {
+                    //toast("Unlock Fail!");
+                    wrong++;
+                    total++;
+                    updateData();
+                }
+            }
+        }catch (IOException e){
+
+        }
+    }
+    //用已有的模型测试/data/user/test 和 /data/noise/test两个文件夹中的声音文件（根据传入的类型选择一个），测试准确率
     @SuppressLint("NewApi")
     public void testForTest(int type,int normal_type){
 
@@ -252,35 +397,35 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                                     data_length++;
                                 }
                             }
-                            String path=FileUtil.getFilePathName(FileUtil.TEST_FEATURE);
+                            String path=FileUtil.getFilePathName(FileUtil.TEST_RECORD);
                             featureDouble = MFCC.mfcc(path, buffer , data_length, 44100);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
 
-                            if(KNN(featureDouble,normal_type)){
+                           /* if(KNN(featureDouble,normal_type)){
                                 //toast("Unlock successfully!");
                                 right++;
                                 total++;
-                                //updateData();
+                                updateData();
                             }else{
                                 //toast("Unlock Fail!");
                                 wrong++;
                                 total++;
-                                //updateData();
-                            }
-                   /* String path=preProcess(featureDouble);
+                                updateData();
+                            }*/
+                    String path=preProcess(featureDouble);
                     if ((MFCC.svmPredict(path) == 1)) {
-                        toast("Unlock successfully!");
+                        //toast("Unlock successfully!");
                         right++;
                         total++;
                         updateData();
                     } else {
-                        toast("Unlock Fail!");
+                        //toast("Unlock Fail!");
                         wrong++;
                         total++;
                         updateData();
-                    }*/
+                    }
                 }
             }
 
@@ -349,12 +494,18 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         }
     }
 
+    /**
+        * @Title: train
+    　　* @Description: 测试不同数据处理方法以及不同训练样本数对准确率的影响
+    　　* @param
+    　　* @return
+    　　*/
     public void train(){
         File user_train=new File(FileUtil.absolutePath+"/data/user/train");
         File user_test=new File(FileUtil.absolutePath+"/data/user/test/");
         File noise_train=new File(FileUtil.absolutePath+"/data/noise/train");
         File noise_test=new File(FileUtil.absolutePath+"/data/noise/test");
-        File result=new File(FileUtil.absolutePath+"result.txt");
+        File result=new File(FileUtil.absolutePath+FileUtil.getTime()+"result.txt");
         BufferedWriter bw=null;
         try{
             if(!result.exists())
@@ -362,32 +513,73 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
           bw=new BufferedWriter(new FileWriter(result));
 
         Random random=new Random();
-        int user_sample_num = 10;
-        int noise_sample_num=10;
+        //设置上下限
+        int user_down_limit=10;
+        int user_up_limit=10;
+        int noise_down_limit=10;
+        int noise_up_limit=10;
+        int interval=1;
+        //初始样本数都为10，处理方法为不作处理
+        int user_sample_num;
+        int noise_sample_num;
         int normal_type=NONE;
 
-        for(normal_type=NONE;normal_type<=SD;normal_type++){
 
-            user_sample_num=10;
+
+        //不同处理方法
+       // for(normal_type=NONE;normal_type<=SD;normal_type++){
+
+            //保证初始的合法训练样本数为user_down_limit
+            user_sample_num=user_down_limit;
             File[] user_sample=user_train.listFiles();
-            do{
-                user_sample=user_train.listFiles();
-                File file=user_sample[random.nextInt(user_sample.length)];
-                file.renameTo(new File(user_test,file.getName()));
-            }while (user_sample.length>10);
-            for(;user_sample_num<=50;){
-                noise_sample_num=10;
-                for(;noise_sample_num<=50;){
+            if(user_sample.length>user_sample_num) {
+                do {
+                    user_sample = user_train.listFiles();
+                    File file = user_sample[random.nextInt(user_sample.length)];
+                    file.renameTo(new File(user_test, file.getName()));
+                } while (user_sample.length > user_sample_num);
+            }else if(user_sample.length<user_sample_num){
+                do {
+                    user_sample = user_test.listFiles();
+                    File file = user_sample[random.nextInt(user_sample.length)];
+                    file.renameTo(new File(user_train, file.getName()));
+                } while (user_train.listFiles().length < user_sample_num);
+            }
+
+            //样本数down_limit-up_limit
+            for(;user_sample_num<=user_up_limit;){
+                noise_sample_num=noise_down_limit;
+
+                //to ensure the number of noise samples
+                File[] noise_sample=noise_train.listFiles();
+                if(noise_sample.length>noise_sample_num) {
+                    do {
+                        noise_sample = noise_train.listFiles();
+                        File file = noise_sample[random.nextInt(noise_sample.length)];
+                        file.renameTo(new File(noise_test, file.getName()));
+                    } while (noise_sample.length > noise_sample_num);
+                }else if(noise_sample.length<noise_sample_num){
+                    do {
+                        noise_sample = noise_test.listFiles();
+                        File file = noise_sample[random.nextInt(noise_sample.length)];
+                        file.renameTo(new File(noise_train, file.getName()));
+                    } while (noise_train.listFiles().length < noise_sample_num);
+                }
+                for(;noise_sample_num<=noise_up_limit;){
 
                     clearFile();
                     trainForTest(USER);
                     trainForTest(OTHER);
                     mPresenter.trainModel(normal_type);
+
                     bw.write("legal sample:"+user_sample_num+",illegal sample:"+noise_sample_num+";");
+
                     testForTest(USER,normal_type);
                     rightRate=(double)(right)/(double)total;
                     double legal_rightRate=rightRate;
+
                     bw.write("legal: right num:"+right+",wrong num:"+wrong+",accuracy:"+String.valueOf(rightRate));
+
                     right=wrong=0;
                     rightRate=0;
                     total=0;
@@ -395,16 +587,16 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     rightRate=(double)(wrong)/(double)total;
                     double illegal_rightRate=rightRate;
 
-                    if(legal_rightRate>0.85&&illegal_rightRate>0.85){
-                        bw.write("normal_type:"+normal_type+", legal sample:"+user_sample_num+",illegal sample:"+noise_sample_num+",legal accuracy:"+legal_rightRate+",illegal accuracy:"+illegal_rightRate);
-                        bw.write("\r\n");
-                        bw.flush();
-                    }
+                    bw.write(" illegal: right num:"+right+",wrong num:"+wrong+",accuracy:"+String.valueOf(rightRate));
+                    bw.write("\r\n");
+                    bw.flush();
 
 
-                    noise_sample_num+=5;
-                    File[] noise_sample=noise_test.listFiles();
-                    int i=5;
+
+                    noise_sample_num+=interval;
+                    noise_sample=noise_test.listFiles();
+                    int i=interval;
+                    //将测试样本随机n个移动到训练样本中
                     while(i>0){
                         File file=noise_sample[random.nextInt(noise_sample.length)];
                         if(file.getParent().contains("test")){
@@ -413,16 +605,17 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                         }
                     }
                 }
+                //将所有测试样本移动到训练样本中，随机留下几个
                 File[] noise=noise_train.listFiles();
-                for(int k=10;k<noise.length;k++){
+                for(int k=noise_down_limit;k<noise.length;k++){
                     File file=noise[k];
                     file.renameTo(new File(noise_test,file.getName()));
                 }
-                user_sample_num += 5;
+                user_sample_num +=interval;
                 user_sample=user_test.listFiles();
                 if(user_sample.length==0)
                     break;
-                int i=5;
+                int i=interval;
                 while(i>0){
                     File file=user_sample[random.nextInt(user_sample.length)];
                     if(file.getParent().contains("test")){
@@ -431,8 +624,9 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     }
                 }
             }
-        }
+       // }
 
+            //更新手机中的目录
             Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
             Uri uri=Uri.fromFile(result);
             intent.setData(uri);
@@ -445,7 +639,11 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     }
     public void clearFile(){
         File[] files=new File(FileUtil.getFilePathName(FileUtil.MODEL_PATH)).listFiles();
+        File[] testFile=new File(FileUtil.getFilePathName(FileUtil.TEST_PATH)).listFiles();
         for(File file:files){
+            file.delete();
+        }
+        for(File file:testFile){
             file.delete();
         }
         toast("clear finished");
@@ -548,6 +746,15 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     @Override
     public void finishTrain() {
             handler.sendEmptyMessage(MAX);
+
+    }
+
+    @Override
+    public void updateMax(int max) {
+        Message message=new Message();
+        message.what=CHANGE_MAX;
+        message.obj=max;
+        handler.sendMessage(message);
     }
 
     @Override
@@ -567,6 +774,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         total++;
         updateData();
         lockPresenter.stopRecorder();
+        handler.sendEmptyMessage(TEST_FINISH);
     }
 
     @Override
@@ -576,6 +784,8 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         total++;
         updateData();
         lockPresenter.stopRecorder();
+        handler.sendEmptyMessage(TEST_FINISH);
+
     }
     public void updateData(){
         rightRate=(double)right/total;

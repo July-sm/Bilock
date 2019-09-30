@@ -20,6 +20,8 @@ public interface LockContract  {
 
         void unlockFail();
 
+        void updateMax(int max);
+
     }
 
     interface Presenter {

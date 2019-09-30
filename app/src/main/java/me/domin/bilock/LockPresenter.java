@@ -300,11 +300,11 @@ public class LockPresenter implements LockContract.Presenter {
     private void writeData(Double feature[], BufferedWriter bw) {
 
         try {
+            bw.write("-1 ");
             for (int i = 0; i < feature.length; i++) {
                 bw.write((i + 1) + ":" + String.valueOf(feature[i]));
                 if (i != feature.length - 1)
                     bw.write(" ");
-                else bw.write("\n");
 //                Log.d(TAG, "writeModel: feature = " + feature[i]);
             }
 
@@ -431,6 +431,7 @@ public class LockPresenter implements LockContract.Presenter {
             while (num != 2 && isRecord) {
                 numOfReadShort = record.read(audioSamples, 0, readChunkSize);   // pulling
                 max = wavWriter.pushAudioShortNew(audioSamples, numOfReadShort);  // Maybe move this to another thread?
+                mLockView.updateMax(max);
                 if (max == -1)
                     num++;
             }
@@ -476,6 +477,9 @@ public class LockPresenter implements LockContract.Presenter {
                 File parent=new File(file.getParent());
                 parent.mkdirs();
                 featureDouble = MFCC.mfcc(file.getAbsolutePath(), buffer, signal.length, 44100);
+
+                featureDouble=z_score(featureDouble);
+               // featureDouble=sum_normal(featureDouble);
 //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -499,7 +503,7 @@ public class LockPresenter implements LockContract.Presenter {
 
 
             //调用svmPredict方法判断特征是否合法，并调用publishProgress更新结果
-           /* try {
+            try {
                 if ((MFCC.svmPredict(path)) == 1) {
                     publishProgress(true);
                 } else {
@@ -507,13 +511,13 @@ public class LockPresenter implements LockContract.Presenter {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            }*/
+            }
 
-           if(KNN(featureDouble,NONE)){
+           /*if(KNN(featureDouble,NONE)){
                publishProgress(true);
            }else {
                publishProgress(false);
-           }
+           }*/
 
 
             return null;
@@ -536,6 +540,8 @@ public class LockPresenter implements LockContract.Presenter {
                 p.calDis(features);
                 list.add(p);
             }
+            if(list.size()==0)
+                return false;
             list.sort(new Comparator() {
                 @Override
                 public int compare(Object o, Object t1) {

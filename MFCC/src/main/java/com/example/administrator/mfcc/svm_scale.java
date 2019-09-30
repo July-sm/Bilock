@@ -1,337 +1,352 @@
 package com.example.administrator.mfcc;
 
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by Fernflower decompiler)
-//
+import libsvm.*;
+import java.io.*;
+import java.util.*;
+import java.text.DecimalFormat;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.Formatter;
-import java.util.StringTokenizer;
+class svm_scale
+{
+	private String line = null;
+	private double lower = -1.0;
+	private double upper = 1.0;
+	private double y_lower;
+	private double y_upper;
+	private boolean y_scaling = false;
+	private double[] feature_max;
+	private double[] feature_min;
+	private double y_max = -Double.MAX_VALUE;
+	private double y_min = Double.MAX_VALUE;
+	private int max_index;
+	private long num_nonzeros = 0;
+	private long new_num_nonzeros = 0;
 
-public class svm_scale {
-    private String line = null;
-    private double lower = -1.0D;
-    private double upper = 1.0D;
-    private double y_lower;
-    private double y_upper;
-    private boolean y_scaling = false;
-    private double[] feature_max;
-    private double[] feature_min;
-    private double y_max = -1.7976931348623157E308D;
-    private double y_min = 1.7976931348623157E308D;
-    private int max_index;
-    private long num_nonzeros = 0L;
-    private long new_num_nonzeros = 0L;
+	private static void exit_with_help()
+	{
+		System.out.print(
+		 "Usage: svm-scale [options] data_filename\n"
+		+"options:\n"
+		+"-l lower : x scaling lower limit (default -1)\n"
+		+"-u upper : x scaling upper limit (default +1)\n"
+		+"-y y_lower y_upper : y scaling limits (default: no y scaling)\n"
+		+"-s save_filename : save scaling parameters to save_filename\n"
+		+"-r restore_filename : restore scaling parameters from restore_filename\n"
+		);
+		System.exit(1);
+	}
 
-    svm_scale() {
-    }
+	private BufferedReader rewind(BufferedReader fp, String filename) throws IOException
+	{
+		fp.close();
+		return new BufferedReader(new FileReader(filename));
+	}
 
-    private static void exit_with_help() {
-        System.out.print("Usage: svm-scale [options] data_filename\noptions:\n-l lower : x scaling lower limit (default -1)\n-u upper : x scaling upper limit (default +1)\n-y y_lower y_upper : y scaling limits (default: no y scaling)\n-s save_filename : save scaling parameters to save_filename\n-r restore_filename : restore scaling parameters from restore_filename\n");
-        System.exit(1);
-    }
+	private void output_target(double value)
+	{
+		if(y_scaling)
+		{
+			if(value == y_min)
+				value = y_lower;
+			else if(value == y_max)
+				value = y_upper;
+			else
+				value = y_lower + (y_upper-y_lower) *
+				(value-y_min) / (y_max-y_min);
+		}
 
-    private BufferedReader rewind(BufferedReader var1, String var2) throws IOException {
-        var1.close();
-        return new BufferedReader(new FileReader(var2));
-    }
+		System.out.print(value + " ");
+	}
 
-    private void output_target(double var1) {
-        if (this.y_scaling) {
-            if (var1 == this.y_min) {
-                var1 = this.y_lower;
-            } else if (var1 == this.y_max) {
-                var1 = this.y_upper;
-            } else {
-                var1 = this.y_lower + (this.y_upper - this.y_lower) * (var1 - this.y_min) / (this.y_max - this.y_min);
-            }
-        }
+	private void output(int index, double value)
+	{
+		/* skip single-valued attribute */
+		if(feature_max[index] == feature_min[index])
+			return;
 
-        System.out.print(var1 + " ");
-    }
+		if(value == feature_min[index])
+			value = lower;
+		else if(value == feature_max[index])
+			value = upper;
+		else
+			value = lower + (upper-lower) *
+				(value-feature_min[index])/
+				(feature_max[index]-feature_min[index]);
 
-    private void output(int var1, double var2) {
-        if (this.feature_max[var1] != this.feature_min[var1]) {
-            if (var2 == this.feature_min[var1]) {
-                var2 = this.lower;
-            } else if (var2 == this.feature_max[var1]) {
-                var2 = this.upper;
-            } else {
-                var2 = this.lower + (this.upper - this.lower) * (var2 - this.feature_min[var1]) / (this.feature_max[var1] - this.feature_min[var1]);
-            }
+		if(value != 0)
+		{
+			System.out.print(index + ":" + value + " ");
+			new_num_nonzeros++;
+		}
+	}
 
-            if (var2 != 0.0D) {
-                System.out.print(var1 + ":" + var2 + " ");
-                ++this.new_num_nonzeros;
-            }
+	private String readline(BufferedReader fp) throws IOException
+	{
+		line = fp.readLine();
+		return line;
+	}
 
-        }
-    }
+	private void run(String []argv) throws IOException
+	{
+		int i,index;
+		BufferedReader fp = null, fp_restore = null;
+		String save_filename = null;
+		String restore_filename = null;
+		String data_filename = null;
 
-    private String readline(BufferedReader var1) throws IOException {
-        this.line = var1.readLine();
-        return this.line;
-    }
 
-    private void run(String[] var1) throws IOException {
-        BufferedReader var4 = null;
-        BufferedReader var5 = null;
-        String var6 = null;
-        String var7 = null;
-        String var8 = null;
+		for(i=0;i<argv.length;i++)
+		{
+			if (argv[i].charAt(0) != '-')	break;
+			++i;
+			switch(argv[i-1].charAt(1))
+			{
+				case 'l': lower = Double.parseDouble(argv[i]);	break;
+				case 'u': upper = Double.parseDouble(argv[i]);	break;
+				case 'y':
+					  y_lower = Double.parseDouble(argv[i]);
+					  ++i;
+					  y_upper = Double.parseDouble(argv[i]);
+					  y_scaling = true;
+					  break;
+				case 's': save_filename = argv[i];	break;
+				case 'r': restore_filename = argv[i];	break;
+				default:
+					  System.err.println("unknown option");
+					  exit_with_help();
+			}
+		}
 
-        int var2;
-        for(var2 = 0; var2 < var1.length && var1[var2].charAt(0) == '-'; ++var2) {
-            ++var2;
-            switch(var1[var2 - 1].charAt(1)) {
-                case 'l':
-                    this.lower = Double.parseDouble(var1[var2]);
-                    break;
-                case 'm':
-                case 'n':
-                case 'o':
-                case 'p':
-                case 'q':
-                case 't':
-                case 'v':
-                case 'w':
-                case 'x':
-                default:
-                    System.err.println("unknown option");
-                    exit_with_help();
-                    break;
-                case 'r':
-                    var7 = var1[var2];
-                    break;
-                case 's':
-                    var6 = var1[var2];
-                    break;
-                case 'u':
-                    this.upper = Double.parseDouble(var1[var2]);
-                    break;
-                case 'y':
-                    this.y_lower = Double.parseDouble(var1[var2]);
-                    ++var2;
-                    this.y_upper = Double.parseDouble(var1[var2]);
-                    this.y_scaling = true;
-            }
-        }
+		if(!(upper > lower) || (y_scaling && !(y_upper > y_lower)))
+		{
+			System.err.println("inconsistent lower/upper specification");
+			System.exit(1);
+		}
+		if(restore_filename != null && save_filename != null)
+		{
+			System.err.println("cannot use -r and -s simultaneously");
+			System.exit(1);
+		}
 
-        if (this.upper <= this.lower || this.y_scaling && this.y_upper <= this.y_lower) {
-            System.err.println("inconsistent lower/upper specification");
-            System.exit(1);
-        }
+		if(argv.length != i+1)
+			exit_with_help();
 
-        if (var7 != null && var6 != null) {
-            System.err.println("cannot use -r and -s simultaneously");
-            System.exit(1);
-        }
+		data_filename = argv[i];
+		try {
+			fp = new BufferedReader(new FileReader(data_filename));
+		} catch (Exception e) {
+			System.err.println("can't open file " + data_filename);
+			System.exit(1);
+		}
 
-        if (var1.length != var2 + 1) {
-            exit_with_help();
-        }
+		/* assumption: min index of attributes is 1 */
+		/* pass 1: find out max index of attributes */
+		max_index = 0;
 
-        var8 = var1[var2];
+		if(restore_filename != null)
+		{
+			int idx, c;
 
-        try {
-            var4 = new BufferedReader(new FileReader(var8));
-        } catch (Exception var21) {
-            System.err.println("can't open file " + var8);
-            System.exit(1);
-        }
+			try {
+				fp_restore = new BufferedReader(new FileReader(restore_filename));
+			}
+			catch (Exception e) {
+				System.err.println("can't open file " + restore_filename);
+				System.exit(1);
+			}
+			if((c = fp_restore.read()) == 'y')
+			{
+				fp_restore.readLine();
+				fp_restore.readLine();
+				fp_restore.readLine();
+			}
+			fp_restore.readLine();
+			fp_restore.readLine();
 
-        this.max_index = 0;
-        int var9;
-        if (var7 != null) {
-            try {
-                var5 = new BufferedReader(new FileReader(var7));
-            } catch (Exception var20) {
-                System.err.println("can't open file " + var7);
-                System.exit(1);
-            }
+			String restore_line = null;
+			while((restore_line = fp_restore.readLine())!=null)
+			{
+				StringTokenizer st2 = new StringTokenizer(restore_line);
+				idx = Integer.parseInt(st2.nextToken());
+				max_index = Math.max(max_index, idx);
+			}
+			fp_restore = rewind(fp_restore, restore_filename);
+		}
 
-            if (var5.read() == 121) {
-                var5.readLine();
-                var5.readLine();
-                var5.readLine();
-            }
+		while (readline(fp) != null)
+		{
+			StringTokenizer st = new StringTokenizer(line," \t\n\r\f:");
+			st.nextToken();
+			while(st.hasMoreTokens())
+			{
+				index = Integer.parseInt(st.nextToken());
+				max_index = Math.max(max_index, index);
+				st.nextToken();
+				num_nonzeros++;
+			}
+		}
 
-            var5.readLine();
-            var5.readLine();
+		try {
+			feature_max = new double[(max_index+1)];
+			feature_min = new double[(max_index+1)];
+		} catch(OutOfMemoryError e) {
+			System.err.println("can't allocate enough memory");
+			System.exit(1);
+		}
 
-            for(String var11 = null; (var11 = var5.readLine()) != null; this.max_index = Math.max(this.max_index, var9)) {
-                StringTokenizer var12 = new StringTokenizer(var11);
-                var9 = Integer.parseInt(var12.nextToken());
-            }
+		for(i=0;i<=max_index;i++)
+		{
+			feature_max[i] = -Double.MAX_VALUE;
+			feature_min[i] = Double.MAX_VALUE;
+		}
 
-            var5 = this.rewind(var5, var7);
-        }
+		fp = rewind(fp, data_filename);
 
-        int var3;
-        while(this.readline(var4) != null) {
-            StringTokenizer var22 = new StringTokenizer(this.line, " \t\n\r\f:");
-            var22.nextToken();
+		/* pass 2: find out min/max value */
+		while(readline(fp) != null)
+		{
+			int next_index = 1;
+			double target;
+			double value;
 
-            while(var22.hasMoreTokens()) {
-//                var3 = (int) Double.parseDouble(var22.nextToken());
-                var3 = Integer.parseInt(var22.nextToken());
-                this.max_index = Math.max(this.max_index, var3);
-                var22.nextToken();
-                ++this.num_nonzeros;
-            }
-        }
+			StringTokenizer st = new StringTokenizer(line," \t\n\r\f:");
+			target = Double.parseDouble(st.nextToken());
+			y_max = Math.max(y_max, target);
+			y_min = Math.min(y_min, target);
 
-        try {
-            this.feature_max = new double[this.max_index + 1];
-            this.feature_min = new double[this.max_index + 1];
-        } catch (OutOfMemoryError var19) {
-            System.err.println("can't allocate enough memory");
-            System.exit(1);
-        }
+			while (st.hasMoreTokens())
+			{
+				index = Integer.parseInt(st.nextToken());
+				value = Double.parseDouble(st.nextToken());
 
-        for(var2 = 0; var2 <= this.max_index; ++var2) {
-            this.feature_max[var2] = -1.7976931348623157E308D;
-            this.feature_min[var2] = 1.7976931348623157E308D;
-        }
+				for (i = next_index; i<index; i++)
+				{
+					feature_max[i] = Math.max(feature_max[i], 0);
+					feature_min[i] = Math.min(feature_min[i], 0);
+				}
 
-        var4 = this.rewind(var4, var8);
+				feature_max[index] = Math.max(feature_max[index], value);
+				feature_min[index] = Math.min(feature_min[index], value);
+				next_index = index + 1;
+			}
 
-        double var10;
-        StringTokenizer var14;
-        double var26;
-        while(this.readline(var4) != null) {
-            var9 = 1;
-            var14 = new StringTokenizer(this.line, " \t\n\r\f:");
-            var10 = Double.parseDouble(var14.nextToken());
-            this.y_max = Math.max(this.y_max, var10);
+			for(i=next_index;i<=max_index;i++)
+			{
+				feature_max[i] = Math.max(feature_max[i], 0);
+				feature_min[i] = Math.min(feature_min[i], 0);
+			}
+		}
 
-            for(this.y_min = Math.min(this.y_min, var10); var14.hasMoreTokens(); var9 = var3 + 1) {
-                var3 = Integer.parseInt(var14.nextToken());
-                var26 = Double.parseDouble(var14.nextToken());
+		fp = rewind(fp, data_filename);
 
-                for(var2 = var9; var2 < var3; ++var2) {
-                    this.feature_max[var2] = Math.max(this.feature_max[var2], 0.0D);
-                    this.feature_min[var2] = Math.min(this.feature_min[var2], 0.0D);
-                }
+		/* pass 2.5: save/restore feature_min/feature_max */
+		if(restore_filename != null)
+		{
+			// fp_restore rewinded in finding max_index
+			int idx, c;
+			double fmin, fmax;
 
-                this.feature_max[var3] = Math.max(this.feature_max[var3], var26);
-                this.feature_min[var3] = Math.min(this.feature_min[var3], var26);
-            }
+			fp_restore.mark(2);				// for reset
+			if((c = fp_restore.read()) == 'y')
+			{
+				fp_restore.readLine();		// pass the '\n' after 'y'
+				StringTokenizer st = new StringTokenizer(fp_restore.readLine());
+				y_lower = Double.parseDouble(st.nextToken());
+				y_upper = Double.parseDouble(st.nextToken());
+				st = new StringTokenizer(fp_restore.readLine());
+				y_min = Double.parseDouble(st.nextToken());
+				y_max = Double.parseDouble(st.nextToken());
+				y_scaling = true;
+			}
+			else
+				fp_restore.reset();
 
-            for(var2 = var9; var2 <= this.max_index; ++var2) {
-                this.feature_max[var2] = Math.max(this.feature_max[var2], 0.0D);
-                this.feature_min[var2] = Math.min(this.feature_min[var2], 0.0D);
-            }
-        }
+			if(fp_restore.read() == 'x') {
+				fp_restore.readLine();		// pass the '\n' after 'x'
+				StringTokenizer st = new StringTokenizer(fp_restore.readLine());
+				lower = Double.parseDouble(st.nextToken());
+				upper = Double.parseDouble(st.nextToken());
+				String restore_line = null;
+				while((restore_line = fp_restore.readLine())!=null)
+				{
+					StringTokenizer st2 = new StringTokenizer(restore_line);
+					idx = Integer.parseInt(st2.nextToken());
+					fmin = Double.parseDouble(st2.nextToken());
+					fmax = Double.parseDouble(st2.nextToken());
+					if (idx <= max_index)
+					{
+						feature_min[idx] = fmin;
+						feature_max[idx] = fmax;
+					}
+				}
+			}
+			fp_restore.close();
+		}
 
-        var4 = this.rewind(var4, var8);
-        if (var7 != null) {
-            var5.mark(2);
-            StringTokenizer var15;
-            if (var5.read() == 121) {
-                var5.readLine();
-                var15 = new StringTokenizer(var5.readLine());
-                this.y_lower = Double.parseDouble(var15.nextToken());
-                this.y_upper = Double.parseDouble(var15.nextToken());
-                var15 = new StringTokenizer(var5.readLine());
-                this.y_min = Double.parseDouble(var15.nextToken());
-                this.y_max = Double.parseDouble(var15.nextToken());
-                this.y_scaling = true;
-            } else {
-                var5.reset();
-            }
+		if(save_filename != null)
+		{
+			Formatter formatter = new Formatter(new StringBuilder());
+			BufferedWriter fp_save = null;
 
-            if (var5.read() == 120) {
-                var5.readLine();
-                var15 = new StringTokenizer(var5.readLine());
-                this.lower = Double.parseDouble(var15.nextToken());
-                this.upper = Double.parseDouble(var15.nextToken());
-                String var16 = null;
+			try {
+				fp_save = new BufferedWriter(new FileWriter(save_filename));
+			} catch(IOException e) {
+				System.err.println("can't open file " + save_filename);
+				System.exit(1);
+			}
 
-                while((var16 = var5.readLine()) != null) {
-                    StringTokenizer var17 = new StringTokenizer(var16);
-                    var9 = Integer.parseInt(var17.nextToken());
-                    double var25 = Double.parseDouble(var17.nextToken());
-                    double var13 = Double.parseDouble(var17.nextToken());
-                    if (var9 <= this.max_index) {
-                        this.feature_min[var9] = var25;
-                        this.feature_max[var9] = var13;
-                    }
-                }
-            }
+			if(y_scaling)
+			{
+				formatter.format("y\n");
+				formatter.format("%.16g %.16g\n", y_lower, y_upper);
+				formatter.format("%.16g %.16g\n", y_min, y_max);
+			}
+			formatter.format("x\n");
+			formatter.format("%.16g %.16g\n", lower, upper);
+			for(i=1;i<=max_index;i++)
+			{
+				if(feature_min[i] != feature_max[i])
+					formatter.format("%d %.16g %.16g\n", i, feature_min[i], feature_max[i]);
+			}
+			fp_save.write(formatter.toString());
+			fp_save.close();
+		}
 
-            var5.close();
-        }
+		/* pass 3: scale */
+		while(readline(fp) != null)
+		{
+			int next_index = 1;
+			double target;
+			double value;
 
-        if (var6 != null) {
-            Formatter var24 = new Formatter(new StringBuilder());
-            BufferedWriter var23 = null;
+			StringTokenizer st = new StringTokenizer(line," \t\n\r\f:");
+			target = Double.parseDouble(st.nextToken());
+			output_target(target);
+			while(st.hasMoreElements())
+			{
+				index = Integer.parseInt(st.nextToken());
+				value = Double.parseDouble(st.nextToken());
+				for (i = next_index; i<index; i++)
+					output(i, 0);
+				output(index, value);
+				next_index = index + 1;
+			}
 
-            try {
-                var23 = new BufferedWriter(new FileWriter(var6));
-            } catch (IOException var18) {
-                System.err.println("can't open file " + var6);
-                System.exit(1);
-            }
+			for(i=next_index;i<= max_index;i++)
+				output(i, 0);
+			System.out.print("\n");
+		}
+		if (new_num_nonzeros > num_nonzeros)
+			System.err.print(
+			 "WARNING: original #nonzeros " + num_nonzeros+"\n"
+			+"         new      #nonzeros " + new_num_nonzeros+"\n"
+			+"Use -l 0 if many original feature values are zeros\n");
 
-            if (this.y_scaling) {
-                var24.format("y\n");
-                var24.format("%.16g %.16g\n", this.y_lower, this.y_upper);
-                var24.format("%.16g %.16g\n", this.y_min, this.y_max);
-            }
+		fp.close();
+	}
 
-            var24.format("x\n");
-            var24.format("%.16g %.16g\n", this.lower, this.upper);
-
-            for(var2 = 1; var2 <= this.max_index; ++var2) {
-                if (this.feature_min[var2] != this.feature_max[var2]) {
-                    var24.format("%d %.16g %.16g\n", var2, this.feature_min[var2], this.feature_max[var2]);
-                }
-            }
-
-            var23.write(var24.toString());
-            var23.close();
-        }
-
-        while(this.readline(var4) != null) {
-            var9 = 1;
-            var14 = new StringTokenizer(this.line, " \t\n\r\f:");
-            var10 = Double.parseDouble(var14.nextToken());
-            this.output_target(var10);
-
-            while(var14.hasMoreElements()) {
-                var3 = Integer.parseInt(var14.nextToken());
-                var26 = Double.parseDouble(var14.nextToken());
-
-                for(var2 = var9; var2 < var3; ++var2) {
-                    this.output(var2, 0.0D);
-                }
-
-                this.output(var3, var26);
-                var9 = var3 + 1;
-            }
-
-            for(var2 = var9; var2 <= this.max_index; ++var2) {
-                this.output(var2, 0.0D);
-            }
-
-            System.out.print("\n");
-        }
-
-        if (this.new_num_nonzeros > this.num_nonzeros) {
-            System.err.print("WARNING: original #nonzeros " + this.num_nonzeros + "\n         new      #nonzeros " + this.new_num_nonzeros + "\nUse -l 0 if many original feature values are zeros\n");
-        }
-
-        var4.close();
-    }
-
-    public static void main(String[] var0) throws IOException {
-        svm_scale var1 = new svm_scale();
-        var1.run(var0);
-    }
+	public static void main(String argv[]) throws IOException
+	{
+		svm_scale s = new svm_scale();
+		s.run(argv);
+	}
 }

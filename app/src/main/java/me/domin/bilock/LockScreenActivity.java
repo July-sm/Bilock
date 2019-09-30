@@ -67,6 +67,12 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
 
     CircleButton button;
     ImageView setting;
+
+    @Override
+    public void updateMax(int max) {
+
+    }
+
     AVLoadingIndicatorView load;
     //    WaveRecordFragment fragment;
     ImageView imageView;

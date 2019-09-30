@@ -136,7 +136,7 @@ public class TrainPresenter implements TrainContract.Presenter{
             bw=new BufferedOutputStream(new FileOutputStream(modelData));
             for(int j=0;j<features.length;j++) {
                 File feature=features[j];
-                if (feature.getName().contains("ModelFeature")&&feature.getName().contains(".txt")&&!feature.getName().contains("ORIG")) {
+                if (feature.getName().contains("Feature")&&feature.getName().contains(".txt")&&!feature.getName().contains("ORIG")) {
                     br = new BufferedInputStream(new FileInputStream(feature));
 //                    dis=new DataInputStream(new FileInputStream(feature));
 //                    dis.readInt();
@@ -179,7 +179,10 @@ public class TrainPresenter implements TrainContract.Presenter{
 
             for(int i=1;i<=count;i++){
                 StringBuilder sb=new StringBuilder();
-                sb.append(user[i-1]);
+                if(user[i-1]==1)
+                    sb.append("+1");
+                else
+                    sb.append("-1");
                 sb.append(" ");
                 for(int j=1;j<=MFCC.LEN_MELREC;j++){
                     sb.append(j);
@@ -192,6 +195,11 @@ public class TrainPresenter implements TrainContract.Presenter{
             }
             bw.flush();
             bw.close();
+
+        }catch (IOException e){
+            Log.e(TAG, "trainModel: error" );
+        }
+        try {
             MFCC.svmTrain();
             view.finishTrain();
         }catch (IOException e){
@@ -292,6 +300,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 while (num != 2) {
                     numOfReadShort = record.read(audioSamples, 0, readChunkSize);   // pulling
                     max = wavWriter.pushAudioShortNew(audioSamples, numOfReadShort);  // Maybe move this to another thread?
+                    view.updateMax(max);
                     //max返回-1表示有提取峰值段
                     if (max == -1)
                         num++;

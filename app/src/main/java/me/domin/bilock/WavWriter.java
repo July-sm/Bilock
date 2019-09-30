@@ -215,8 +215,8 @@ class WavWriter {
     int index = 0;
 
     //MIN_NOISE:判断为牙齿咬合事件的声音最低值，MAX_NOISE：最高值
-    int MIN_NOISE =2500;
-    int MAX_NOISE = 30000;
+    public static int MIN_NOISE =2000;
+    public static int MAX_NOISE = 30000;
     //截取声音信号的长度
     int bufferSize=300;
     //声音最大值前面的长度
@@ -258,6 +258,8 @@ class WavWriter {
         try{
             out.write(byteBuffer);
             framesWritten += numOfReadShort;
+            if(framesWritten<10000)
+                return max;
         }catch(IOException e){
         }
 

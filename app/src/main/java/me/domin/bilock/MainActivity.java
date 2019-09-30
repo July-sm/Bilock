@@ -146,4 +146,9 @@ public class MainActivity extends AppCompatActivity implements LockContract.View
 
     }
 
+    @Override
+    public void updateMax(int max) {
+
+    }
+
 }

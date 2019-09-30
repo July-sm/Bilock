@@ -166,4 +166,9 @@ public class TrainActivity extends AppCompatActivity implements TrainContract.Vi
        handler.sendEmptyMessage(NUM_MAX);
     }
 
+    @Override
+    public void updateMax(int max) {
+
+    }
+
 }

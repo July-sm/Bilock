@@ -121,7 +121,7 @@ class svm_predict {
 		else
 			svm_predict.info("Accuracy = "+(double)correct/total*100+
 				 "% ("+correct+"/"+total+") (classification)\n");
-		return predict_label;
+		return correct/total;
 	}
 
 	private static void exit_with_help()

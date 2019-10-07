@@ -187,18 +187,17 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
             @Override
             public void onClick(View view) {
                 toast("start training!");
-                mPresenter.trainModel(Z_SCORE );
+                mPresenter.trainModel(NONE);
             }
         });
 
         bt_test.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                /*toast("test start!");
-                 lockPresenter.initRecorder();
-                lockPresenter.currentRecordTaskNew();
-                bt_test.setEnabled(false);*/
-                testForTest(USER,NONE);
+                toast("test start!");
+                lockPresenter.startRecord(NONE);
+                bt_test.setEnabled(false);
+               // testForTest(USER,NONE);
             }
         });
         bt_user_offline.setOnClickListener(new View.OnClickListener() {
@@ -337,6 +336,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
 
 
         BufferedWriter bw=new BufferedWriter(new FileWriter(file));
+        bw.write("1 ");
         for(int i=0;i<features.length;i++){
             bw.write(String.valueOf(i+1));
             bw.write(":"+features[i]+" ");
@@ -374,6 +374,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     public void testForTest(int type,int normal_type){
 
         File parent=null;
+        double max_count=0,min_count=100,ave_count=0;
         try {
             if(type==USER)
                 parent=new File(FileUtil.absolutePath+"/data/user/test");
@@ -387,7 +388,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     Double[] featureDouble = null;
                     int length=0;
                     int data_length=0;
-                        try {
+                        try{
                             data_length=0;
                             fis = new FileInputStream(file);
                             fis.skip(44);
@@ -403,7 +404,11 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                                 e.printStackTrace();
                             }
 
-                           /* if(KNN(featureDouble,normal_type)){
+                           /* double count=KNN(featureDouble,normal_type);
+                            max_count=count>max_count?count:max_count;
+                            min_count=count<min_count?count:min_count;
+                            ave_count+=count;*/
+                            if(ONE_CLASS_KNN(featureDouble,normal_type)){
                                 //toast("Unlock successfully!");
                                 right++;
                                 total++;
@@ -413,8 +418,8 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                                 wrong++;
                                 total++;
                                 updateData();
-                            }*/
-                    String path=preProcess(featureDouble);
+                            }
+                   /* String path=preProcess(featureDouble);
                     if ((MFCC.svmPredict(path) == 1)) {
                         //toast("Unlock successfully!");
                         right++;
@@ -425,18 +430,20 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                         wrong++;
                         total++;
                         updateData();
-                    }
+                    }*/
                 }
             }
-
+            ave_count/=files.length;
+            Log.d(TAG,"Type:"+type+"; min:"+min_count+"; max:"+max_count+"; average:"+ave_count);
 
         } catch (Exception e) {
             e.printStackTrace();
+            Log.d(TAG,e.getLocalizedMessage());
         }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
-    public boolean KNN(Double[] features,final int normal_type){
+    public double KNN(Double[] features,final int normal_type){
         switch(normal_type){
             case Z_SCORE:  features=z_score(features);break;
             case MEAN: features=mean_normal(features);break;
@@ -447,11 +454,19 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         double[][] values=TrainPresenter.values;
         int[] user=TrainPresenter.user;
         ArrayList list=new ArrayList();
+        double avg_distance=0;
+        int user_count=0;
         for(int i=0;i<TrainPresenter.count;i++){
             Point p=new Point(values[i],user[i]);
             p.calDis(features);
             list.add(p);
+            if(user[i]==1){
+                avg_distance+=p.distance;
+                user_count++;
+            }
         }
+        avg_distance/=user_count;
+
         list.sort(new Comparator() {
             @Override
             public int compare(Object o, Object t1) {
@@ -465,18 +480,54 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     return -1;
             }
         });
-        int count=0;
+        int legal_count=0,illegal_count=0;
         for(int i=0;i<10;i++){
             if(((Point)list.get(i)).user==1)
-                count++;
+                legal_count++;
             else
-                count--;
+                illegal_count++;
         }
-        if(count>=0)
+        /*if(legal_count>=illegal_count)
             return true;
         else
             return false;
+            */
+        return avg_distance;
     }
+
+
+    public boolean ONE_CLASS_KNN(Double[] features,final int normal_type){
+        switch(normal_type){
+            case Z_SCORE:  features=z_score(features);break;
+            case MEAN: features=mean_normal(features);break;
+            case SUM:    features=sum_normal(features);break;
+            case SD: features=sd_normal(features);break;
+            default:;
+        }
+        double[][] values=TrainPresenter.values;
+        int[] user=TrainPresenter.user;
+        double max_dis=TrainPresenter.max_dis,mid_dis=TrainPresenter.ave_dis;
+        ArrayList list=new ArrayList();
+        double avg_distance=0;
+        int user_count=0;
+        for(int i=0;i<TrainPresenter.count;i++){
+            Point p=new Point(values[i],user[i]);
+            p.calDis(features);
+            list.add(p);
+            if(user[i]==1){
+                avg_distance+=p.distance;
+                user_count++;
+            }
+        }
+        avg_distance/=user_count;
+
+        if(avg_distance<mid_dis+(max_dis-mid_dis)/5){
+            return true;
+        }else{
+            return false;
+        }
+    }
+
     static public class Point{
         double[] values;
         int user;
@@ -569,7 +620,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
 
                     clearFile();
                     trainForTest(USER);
-                    trainForTest(OTHER);
+                    //trainForTest(OTHER);
                     mPresenter.trainModel(normal_type);
 
                     bw.write("legal sample:"+user_sample_num+",illegal sample:"+noise_sample_num+";");

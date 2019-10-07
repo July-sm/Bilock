@@ -61,7 +61,7 @@ public class FileUtil {
             case 2:
             case 5: return absolutePath+userName+getTime()+mFileNameMap.get(type);
             case 3:
-            case 4:  return absolutePath+temp+getTime()+mFileNameMap.get(type);
+            case 4:  return absolutePath+temp+mFileNameMap.get(type);
             case 6:
             case 7: return absolutePath+temp+mFileNameMap.get(type);
 

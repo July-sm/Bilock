@@ -187,54 +187,6 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
             }
         });
 
-       /* button.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
-                    mPresenter.stopRecord();
-
-                    if (mPresenter.isRecordSuccess()) {
-                        Toast.makeText(LockScreenActivity.this, "Welcome", Toast.LENGTH_SHORT).show();
-                        soundOfUnlock();
-                        onDestroy();
-
-                    } else {
-                        shake();
-                        Toast.makeText(LockScreenActivity.this, "Wrong Pin code", Toast.LENGTH_SHORT).show();
-                    }
-                    load.hide();
-                } else if (motionEvent.getAction() == MotionEvent.ACTION_DOWN) {
-                    mPresenter.startRecord();
-                    load.show();
-                }
-                return false;
-            }
-        });
-
-        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager
-                .getInstance(this);
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction("recordDone");
-        BroadcastReceiver br = new BroadcastReceiver() {
-
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                boolean key = intent.getBooleanExtra("msg", false);
-                if (key) {
-                    Log.e(TAG, "onReceive: recordDone");
-                    if (mPresenter.isRecordSuccess()) {
-                        Toast.makeText(LockScreenActivity.this, "Welcome", Toast.LENGTH_SHORT).show();
-                        soundOfUnlock();
-//                        startActivity(intentToMain);
-                    } else {
-                        shake();
-                        Toast.makeText(LockScreenActivity.this, "Wrong Pin code", Toast.LENGTH_SHORT).show();
-                    }
-                }
-            }
-
-        };
-//        localBroadcastManager.registerReceiver(br, intentFilter);*/
         musicId.put(1, soundPool.load(this, R.raw.unlock, 1));
 
         //头像图标增加隐藏按钮到MainActivity
@@ -282,8 +234,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     protected void onResume() {
         super.onResume();
         Log.e(TAG, "onResume: start");
-        mPresenter.initRecorder();
-        mPresenter.currentRecordTaskNew();
+        mPresenter.startRecord(LockPresenter.NONE);
 
         //用于申请该活动所有的权限
         LockScreenActivityPermissionsDispatcher.askForPermissionWithPermissionCheck(this);

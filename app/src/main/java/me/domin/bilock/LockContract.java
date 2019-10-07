@@ -32,7 +32,7 @@ public interface LockContract  {
 
 //        void trainData();
 
-        void startRecord();
+        void startRecord(int type);
 
         void currentRecordTaskNew();
 

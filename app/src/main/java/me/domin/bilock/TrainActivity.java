@@ -47,12 +47,14 @@ import butterknife.ButterKnife;
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.RuntimePermissions;
 
+import static me.domin.bilock.TrainPresenter.NONE;
+
 @RuntimePermissions
 public class TrainActivity extends AppCompatActivity implements TrainContract.View{
 
     private static final int NUM_CHANGE = 1;
     private static final int NUM_MAX = 2;
-
+    static final public int USER=1,OTHER=2;
     TrainPresenter mPresenter;
 
     @BindView(R.id.finish)
@@ -140,7 +142,8 @@ public class TrainActivity extends AppCompatActivity implements TrainContract.Vi
         finishText.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD));
         finishText.getPaint().setFakeBoldText(true);
 
-        mPresenter.trainData(1);
+        mPresenter.trainData(USER);
+        mPresenter.trainModel(NONE);
 
     }
 

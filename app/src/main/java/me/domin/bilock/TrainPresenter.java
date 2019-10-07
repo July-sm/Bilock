@@ -164,6 +164,131 @@ public class TrainPresenter implements TrainContract.Presenter{
                     //dis.close();
                 }
             }
+
+            for(int i=0;i<MFCC.LEN_MELREC;i++){
+                average[i]=sum[i]/count;
+                sd[i]=Math.sqrt(sd[i]);
+            }
+
+            switch(normal_type){
+                case Z_SCORE:   values=z_score(values,average,count);break;
+                case MEAN: values=mean_normal(values,min,max,count);break;
+                case SUM:     values=sum_normal(values,sum,count);break;
+                case SD: values=sd_normal(values,sd,count);break;
+                default:;
+            }
+
+            getLimit();
+
+            for(int i=1;i<=count;i++){
+                StringBuilder sb=new StringBuilder();
+                if(user[i-1]==1)
+                    sb.append("+1");
+                else
+                    sb.append("-1");
+                sb.append(" ");
+                for(int j=1;j<=MFCC.LEN_MELREC;j++){
+                    sb.append(j);
+                    sb.append(":");
+                    sb.append(values[i-1][j-1]);
+                    sb.append(" ");
+                }
+                sb.append("\r\n");
+                bw.write(sb.toString().getBytes("UTF-8"));
+            }
+            bw.flush();
+            bw.close();
+
+        }catch (IOException e){
+            Log.e(TAG, "trainModel: error" );
+        }
+        try {
+            MFCC.svmTrain();
+            view.finishTrain();
+        }catch (IOException e){
+            Log.e(TAG, "trainModel: error" );
+        }
+    }
+
+    public static double ave_dis=0,max_dis=0,min_dis=10000;
+    public void getLimit(){
+        double[] distance=new double[count];
+
+        for(int i=0;i<count;i++){
+            for(int j=i+1;j<count;j++){
+                distance[i]+=getDis(values[i],values[j]);
+                distance[j]+=getDis(values[i],values[j]);
+            }
+            distance[i]/=count-1;
+            ave_dis+=distance[i];
+            max_dis=distance[i]>max_dis?distance[i]:max_dis;
+            min_dis=distance[i]<min_dis?distance[i]:min_dis;
+        }
+        ave_dis/=count;
+
+    }
+    public double getDis(double[] p1,double[] p2){
+        double dis=0;
+        for(int i=0;i<MFCC.LEN_MELREC;i++){
+            dis+=Math.pow(p1[i]-p2[i],2);
+        }
+        dis=Math.sqrt(dis);
+        return dis;
+    }
+
+    public void trainModel(int normal_type,double n) {
+        BufferedOutputStream bw;
+        BufferedInputStream br;
+        File modelData=new File(FileUtil.getFilePathName(FileUtil.MODEL_DATA));
+        File[] features=new File(FileUtil.getFilePathName(FileUtil.MODEL_PATH)).listFiles();
+        byte[] buffer=new byte[10240];
+        int length=0;
+
+        values=new double[200][MFCC.LEN_MELREC];
+        user=new int[200];
+        count=0;
+        double value;
+
+        for(int i=0;i<MFCC.LEN_MELREC;i++){
+            average[i]=0;
+            max[i]=-9999;
+            min[i]=9999;
+            sum[i]=0;
+            sd[i]=0;
+        }
+
+        try{
+            bw=new BufferedOutputStream(new FileOutputStream(modelData));
+            for(int j=0;j<features.length;j++) {
+                File feature=features[j];
+                if (feature.getName().contains("Feature")&&feature.getName().contains(".txt")&&!feature.getName().contains("ORIG")) {
+                    br = new BufferedInputStream(new FileInputStream(feature));
+//                    dis=new DataInputStream(new FileInputStream(feature));
+//                    dis.readInt();
+                    length=br.read(buffer);
+
+                    String str=new String(buffer,0,length);
+                    String[] strs=str.split(" ");
+                    user[count]=Integer.parseInt(strs[0]);
+                    for(int k=0;k<strs.length;k++){
+                        String[] ss=strs[k].split(":");
+                        if(ss.length>=2){
+                            int index=Integer.parseInt(ss[0])-1;
+                            double feature_value=Float.parseFloat(ss[1]);
+                            values[count][index]=feature_value;
+                            sum[index]+=feature_value;
+                            sd[index]+=feature_value*feature_value;
+                            max[index]=max[index]>feature_value?max[index]:feature_value;
+                            min[index]=min[index]<feature_value?min[index]:feature_value;
+                        }
+                    }
+                    count++;
+                    //length = br.read(buffer, 0, 1024);
+                    //bw.write(buffer, 0, length);
+                    br.close();
+                    //dis.close();
+                }
+            }
             for(int i=0;i<MFCC.LEN_MELREC;i++){
                 average[i]=sum[i]/count;
                 sd[i]=Math.sqrt(sd[i]);
@@ -200,7 +325,7 @@ public class TrainPresenter implements TrainContract.Presenter{
             Log.e(TAG, "trainModel: error" );
         }
         try {
-            MFCC.svmTrain();
+            MFCC.svmTrain(n);
             view.finishTrain();
         }catch (IOException e){
             Log.e(TAG, "trainModel: error" );

@@ -119,8 +119,8 @@ public class MFCC {
     public static void svmTrain() throws IOException {
 
         svm_train train = new svm_train();
-        //       String trainArgs[] = new String[]{"-s","2",dictionaryPath + "MFCCs_model.txt", dictionaryPath + "svm_model.txt"};
-        String trainArgs[] = new String[]{dictionaryPath + "MFCCs_model.txt", dictionaryPath + "svm_model.txt"};
+               String trainArgs[] = new String[]{"-s","2",dictionaryPath + "MFCCs_model.txt", dictionaryPath + "svm_model.txt"};
+       // String trainArgs[] = new String[]{dictionaryPath + "MFCCs_model.txt", dictionaryPath + "svm_model.txt"};
        /* String scaleArgs[]=new String[]{"-s",dictionaryPath+"MFCCs_scale.txt",dictionaryPath+"MFCCs_model.txt",dictionaryPath+"MFCCs_waht"};
         svm_scale.main(scaleArgs);*/
 //        String scaleArgs[] = new String[]{"-s", dictionaryPath + "model_one.txt" , "-l ", "-1", "-u ", "1", dictionaryPath + "iris.txt"};
@@ -135,12 +135,23 @@ public class MFCC {
         //2019/9/28 加入svm——scale做尝试
 
     }
+    public static void svmTrain(double n) throws IOException {
+
+        svm_train train = new svm_train();
+        String trainArgs[] = new String[]{"-s","2","-n",Double.toString(n),dictionaryPath + "MFCCs_model.txt", dictionaryPath + "svm_model.txt"};
+        svm_train.main(trainArgs);
+        //查看是否出错
+//        Log.i(TAG, "LibSvm: " + train.error_msg);
+
+        //2019/9/28 加入svm——scale做尝试
+
+    }
 
     public static double svmPredict(String testFile) throws IOException {
 
         String predictArgs[] = new String[]{"-b", "0", testFile, dictionaryPath + "svm_model.txt", dictionaryPath + "result.txt"};
 //        String predictArgs2[] = new String[]{"-b", "0", dictionaryPath + "model.txt", dictionaryPath + "data_model.txt", dictionaryPath + "result.txt"};
-        String scaleArgs[] =new String[]{"-r",dictionaryPath+"MFCCs_scale.txt",};
+        //String scaleArgs[] =new String[]{"-r",dictionaryPath+"MFCCs_scale.txt",};
         double accuracy=0;
         accuracy=svm_predict.main(predictArgs);
         Log.d(TAG,"LibSvm:predict_label = "+accuracy);

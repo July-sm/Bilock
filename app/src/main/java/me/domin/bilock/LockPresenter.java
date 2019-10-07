@@ -68,6 +68,13 @@ public class LockPresenter implements LockContract.Presenter {
     private static String dictionaryPath = absolutePath + "/MFCC2/";
     public STFT stft;   // use with care
 
+    public int type=NONE;
+    public static final int NONE=0;
+    public static final int Z_SCORE=1;
+    public static final int SUM=2;
+    public static final int MEAN=3;
+    public static final int SD=4;
+
     private LockContract.View mLockView;
 
 
@@ -119,9 +126,12 @@ public class LockPresenter implements LockContract.Presenter {
 
     }
 
+    //修改日期：2019/10/6 将LockPresenter开始的步骤封装到该方法中，需要传入数据处理的方法，UI 直接调用就行
     @Override
-    public void startRecord() {
-
+    public void startRecord(int type) {
+        initRecorder();
+        currentRecordTaskNew();
+        this.type=type;
     }
 
     @Override
@@ -478,7 +488,7 @@ public class LockPresenter implements LockContract.Presenter {
                 parent.mkdirs();
                 featureDouble = MFCC.mfcc(file.getAbsolutePath(), buffer, signal.length, 44100);
 
-                featureDouble=z_score(featureDouble);
+         //       featureDouble=z_score(featureDouble);
                // featureDouble=sum_normal(featureDouble);
 //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
             } catch (IOException e) {
@@ -503,7 +513,7 @@ public class LockPresenter implements LockContract.Presenter {
 
 
             //调用svmPredict方法判断特征是否合法，并调用publishProgress更新结果
-            try {
+           /* try {
                 if ((MFCC.svmPredict(path)) == 1) {
                     publishProgress(true);
                 } else {
@@ -511,13 +521,13 @@ public class LockPresenter implements LockContract.Presenter {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            }
+            }*/
 
-           /*if(KNN(featureDouble,NONE)){
+           if(ONE_CLASS_KNN(featureDouble,type)){
                publishProgress(true);
            }else {
                publishProgress(false);
-           }*/
+           }
 
 
             return null;
@@ -555,17 +565,49 @@ public class LockPresenter implements LockContract.Presenter {
                         return -1;
                 }
             });
-            int count=0;
+            int legal_count=0,illegal_count=0;
             for(int i=0;i<10;i++){
                 if(((Test2Activity.Point)list.get(i)).user==1)
-                    count++;
+                    legal_count++;
                 else
-                    count--;
+                    illegal_count++;
             }
-            if(count>=0)
+            Log.d(TAG,"The number of legal point:"+Integer.toString(legal_count));
+            if(legal_count>illegal_count)
                 return true;
             else
                 return false;
+        }
+        public boolean ONE_CLASS_KNN(Double[] features,final int normal_type){
+            switch(normal_type){
+                case Z_SCORE:  features=z_score(features);break;
+                case MEAN: features=mean_normal(features);break;
+                case SUM:    features=sum_normal(features);break;
+                case SD: features=sd_normal(features);break;
+                default:;
+            }
+            double[][] values=TrainPresenter.values;
+            int[] user=TrainPresenter.user;
+            double max_dis=TrainPresenter.max_dis,mid_dis=TrainPresenter.ave_dis;
+            ArrayList list=new ArrayList();
+            double avg_distance=0;
+            int user_count=0;
+            for(int i=0;i<TrainPresenter.count;i++){
+                Test2Activity.Point p=new Test2Activity.Point(values[i],user[i]);
+                p.calDis(features);
+                list.add(p);
+                if(user[i]==1){
+                    avg_distance+=p.distance;
+                    user_count++;
+                }
+            }
+            avg_distance/=user_count;
+
+            if(avg_distance<mid_dis+(max_dis-mid_dis)/5){
+                return true;
+            }else{
+                return false;
+            }
         }
         private Double[] sd_normal(Double[] feature){
             double[] sd=TrainPresenter.sd;

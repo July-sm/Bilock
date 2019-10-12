@@ -215,7 +215,7 @@ class WavWriter {
     int index = 0;
 
     //MIN_NOISE:判断为牙齿咬合事件的声音最低值，MAX_NOISE：最高值
-    public static int MIN_NOISE =2000;
+    public static int MIN_NOISE =2200;
     public static int MAX_NOISE = 30000;
     //截取声音信号的长度
     int bufferSize=300;
@@ -287,7 +287,7 @@ class WavWriter {
 //        Log.e(TAG, "pushAudioShortNew: average * 1.5 = " + average * 13);
 
         if (index - 1 > 0 && index + 1 < buffer.length)
-            if (max > MIN_NOISE && max > buffer[index - 1] && max > buffer[index + 1]) {
+            if (max > MIN_NOISE && max<MAX_NOISE && max > buffer[index - 1] && max > buffer[index + 1]) {
 
             Log.e(TAG, "pushAudioShortNew: max = " + max);
             Log.e(TAG, "pushAudioShortNew: index = " + index);

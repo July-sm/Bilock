@@ -34,6 +34,8 @@ public interface LockContract  {
 
         void startRecord(int type);
 
+        void initData();
+
         void currentRecordTaskNew();
 
         void stopRecord();

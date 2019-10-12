@@ -179,7 +179,8 @@ public class TrainPresenter implements TrainContract.Presenter{
             }
 
             getLimit();
-
+            String s="average distance:"+ave_dis+"\r\n"+"max distance: "+max_dis+"\r\n";
+            bw.write(s.getBytes("UTF-8"));
             for(int i=1;i<=count;i++){
                 StringBuilder sb=new StringBuilder();
                 if(user[i-1]==1)
@@ -202,12 +203,14 @@ public class TrainPresenter implements TrainContract.Presenter{
         }catch (IOException e){
             Log.e(TAG, "trainModel: error" );
         }
-        try {
-            MFCC.svmTrain();
-            view.finishTrain();
+       /* try {
+            //MFCC.svmTrain();
+
         }catch (IOException e){
             Log.e(TAG, "trainModel: error" );
-        }
+        }*/
+
+        view.finishTrain();
     }
 
     public static double ave_dis=0,max_dis=0,min_dis=10000;
@@ -515,6 +518,7 @@ public class TrainPresenter implements TrainContract.Presenter{
             record.stop();
             wavWriter.stop();
             record.release();
+            trainModel(NONE);
             view.finishTrain();
         }
         private void writeData(Double feature[], BufferedWriter bw) {

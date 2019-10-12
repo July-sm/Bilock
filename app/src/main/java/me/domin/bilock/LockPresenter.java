@@ -18,10 +18,12 @@ import com.example.administrator.mfcc.MFCC;
 //import com.maple.recorder.recording.PullTransport;
 //import com.maple.recorder.recording.Recorder;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +48,7 @@ import static me.domin.bilock.TrainPresenter.NONE;
 import static me.domin.bilock.TrainPresenter.SD;
 import static me.domin.bilock.TrainPresenter.SUM;
 import static me.domin.bilock.TrainPresenter.Z_SCORE;
+import static me.domin.bilock.TrainPresenter.max;
 
 /**
   * @ProjectName:    Bilock
@@ -67,7 +70,7 @@ public class LockPresenter implements LockContract.Presenter {
     public static String absolutePath = Environment.getExternalStorageDirectory().getAbsolutePath()+"/Bilock/";
     private static String dictionaryPath = absolutePath + "/MFCC2/";
     public STFT stft;   // use with care
-
+    static final  String TAG="LockPresenter";
     public int type=NONE;
     public static final int NONE=0;
     public static final int Z_SCORE=1;
@@ -133,6 +136,36 @@ public class LockPresenter implements LockContract.Presenter {
         currentRecordTaskNew();
         this.type=type;
     }
+
+
+     double[][] values=new double[100][MFCC.LEN_MELREC];
+     double max_distance=0,ave_distance=0;
+     int data_num=0;
+    public void initData(){
+        Log.d(TAG,"initdata is used");
+        String path=FileUtil.getFilePathName(FileUtil.MODEL_DATA);
+        try{
+            BufferedReader br=new BufferedReader(new FileReader(path));
+            int line_num=0;
+            String first=br.readLine();
+            String second=br.readLine();
+             max_distance=Double.valueOf(second.substring(second.indexOf(":")+1));
+            ave_distance=Double.valueOf(first.substring(first.indexOf(":")+1));
+            String feature;
+            while((feature=br.readLine())!=null){
+                String[] features=feature.split(" ");
+                for(int i=1;i<MFCC.LEN_MELREC&&i<features.length;i++){
+                    values[line_num][i-1]=Double.valueOf((features[i].split(":"))[1]);
+                }
+                line_num++;
+            }
+            data_num=line_num;
+        }catch(IOException e){
+            Log.d(TAG,"MODEL DATE MISSING!");
+        }
+
+    }
+
 
     @Override
     public void currentRecord() {
@@ -432,9 +465,9 @@ public class LockPresenter implements LockContract.Presenter {
         　　*/
         protected Void doInBackground(Void... voids) {
 //            int bufferSampleSize = Math.max(minBytes / 2, fftlen / 2) * 2;
+            Log.d(TAG,"recordtask is made");
             wavWriter.start();
             int max = 0;
-
             int num = 0;
             //max < MAX_NOISE
             //一直读取录音数据，直到获取两个在阈值范围内的峰值，视作牙齿咬合声音
@@ -579,6 +612,7 @@ public class LockPresenter implements LockContract.Presenter {
                 return false;
         }
         public boolean ONE_CLASS_KNN(Double[] features,final int normal_type){
+            Log.d(TAG,"One class knn is used");
             switch(normal_type){
                 case Z_SCORE:  features=z_score(features);break;
                 case MEAN: features=mean_normal(features);break;
@@ -586,24 +620,21 @@ public class LockPresenter implements LockContract.Presenter {
                 case SD: features=sd_normal(features);break;
                 default:;
             }
-            double[][] values=TrainPresenter.values;
-            int[] user=TrainPresenter.user;
-            double max_dis=TrainPresenter.max_dis,mid_dis=TrainPresenter.ave_dis;
             ArrayList list=new ArrayList();
-            double avg_distance=0;
+            Log.d(TAG,"ave:"+ave_distance);
+            Log.d(TAG,"max:"+max_distance);
             int user_count=0;
-            for(int i=0;i<TrainPresenter.count;i++){
-                Test2Activity.Point p=new Test2Activity.Point(values[i],user[i]);
+            double ave_dis=0;
+            for(int i=0;i<data_num;i++){
+                Test2Activity.Point p=new Test2Activity.Point(values[i],1);
                 p.calDis(features);
                 list.add(p);
-                if(user[i]==1){
-                    avg_distance+=p.distance;
+                    ave_dis+=p.distance;
                     user_count++;
-                }
             }
-            avg_distance/=user_count;
-
-            if(avg_distance<mid_dis+(max_dis-mid_dis)/5){
+            ave_dis/=user_count;
+            Log.d(TAG,"ave_dis:"+ave_dis);
+            if(ave_dis<ave_distance+(max_distance-ave_distance)/2 ) {
                 return true;
             }else{
                 return false;

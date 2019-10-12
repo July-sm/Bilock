@@ -143,7 +143,7 @@ public class TrainActivity extends AppCompatActivity implements TrainContract.Vi
         finishText.getPaint().setFakeBoldText(true);
 
         mPresenter.trainData(USER);
-        mPresenter.trainModel(NONE);
+
 
     }
 

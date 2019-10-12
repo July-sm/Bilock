@@ -17,19 +17,19 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity android:name=".Test2Activity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
         </activity>
         <activity android:name=".MainActivity" />
-        <activity android:name=".LockScreenActivity" />
+        <activity android:name=".LockScreenActivity" >
+        </activity>
         <activity
             android:name=".WelcomePage"
             android:theme="@style/WelcomeScreenTheme" />
         <activity android:name=".StartActivity">
-
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
         <activity android:name=".TrainActivity" />
         <activity android:name=".TeachActivity"></activity>

@@ -195,6 +195,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
             @Override
             public void onClick(View view) {
                 toast("test start!");
+                lockPresenter.initData();
                 lockPresenter.startRecord(NONE);
                 bt_test.setEnabled(false);
                // testForTest(USER,NONE);

@@ -117,9 +117,10 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.lock_layout);
-        intentToMain = new Intent(LockScreenActivity.this, MainActivity.class);
+ //       intentToMain = new Intent(LockScreenActivity.this, MainActivity.class);
 //        fragment = (WaveRecordFragment) getSupportFragmentManager().findFragmentById(R.id.wave_record);
         mPresenter = new LockPresenter(this);
+        mPresenter.initData();
         textView = findViewById(R.id.profile_name);
         button = findViewById(R.id.button);
         load = findViewById(R.id.load);
@@ -157,7 +158,6 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
                             case R.id.yes:
                                 //Intent intent = new Intent(LockScreenActivity.this,StartActivity.class);
                                 //startActivity(intent);
-                                String username = "user";
                                 String path = FileUtil.getUserPath();
                                 File file = new File(path);
                                 File[] files = file.listFiles();
@@ -234,8 +234,10 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     protected void onResume() {
         super.onResume();
         Log.e(TAG, "onResume: start");
+        Log.e(LockPresenter.TAG,"onResume is used");
+        mPresenter.initData();
+        Log.e(LockPresenter.TAG,"initData from onResume is used");
         mPresenter.startRecord(LockPresenter.NONE);
-
         //用于申请该活动所有的权限
         LockScreenActivityPermissionsDispatcher.askForPermissionWithPermissionCheck(this);
         //开启线程，实时更新画面
@@ -251,6 +253,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
                 }
             }
         }).start();
+
     }
 
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -291,13 +294,17 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     public void unlockSuccess() {
         Toast.makeText(LockScreenActivity.this, "Welcome", Toast.LENGTH_SHORT).show();
         soundOfUnlock();
-        System.exit(0);
+//        System.exit(0);
+        Intent intent = new Intent(LockScreenActivity.this, Test2Activity.class);
+        startActivity(intent);
     }
 
     @Override
     public void unlockFail() {
         shake();
-        Toast.makeText(LockScreenActivity.this, "Wrong Pin code", Toast.LENGTH_SHORT).show();
+        //Toast.makeText(LockScreenActivity.this, "Wrong Pin code", Toast.LENGTH_SHORT).show();
+        mPresenter.initData();
+        Log.e(LockPresenter.TAG,"initData from UnlockFail is used");
         mPresenter.currentRecordTaskNew();
     }
 

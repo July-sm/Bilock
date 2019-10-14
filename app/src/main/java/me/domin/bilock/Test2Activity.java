@@ -529,6 +529,9 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         }
     }
 
+    /*
+        修改:修改计算距离的方法，提高特征1.2.3.6.7.8的比重，降低其他比重
+     */
     static public class Point{
         double[] values;
         int user;
@@ -539,8 +542,18 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         }
         public void calDis(Double[] features){
             distance=0;
-            for(int i=0;i<MFCC.LEN_MELREC;i++){
-                distance+=Math.pow(features[i]-values[i],2);
+            for(int i=0;i<TrainPresenter.FEATURE_NUM;i++){
+                switch(i+1){
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 6:
+                    case 7:
+                    case 8:
+                        distance+=1.2*Math.pow(features[i]-values[i],2);
+                        default:
+                            distance+=0.8*Math.pow(features[i]-values[i],2);
+                }
             }
             distance=Math.sqrt(distance);
         }

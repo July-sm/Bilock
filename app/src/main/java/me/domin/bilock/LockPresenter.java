@@ -77,6 +77,7 @@ public class LockPresenter implements LockContract.Presenter {
     public static final int SUM=2;
     public static final int MEAN=3;
     public static final int SD=4;
+    static int FEATURE_NUM=TrainPresenter.FEATURE_NUM;
 
     private LockContract.View mLockView;
 
@@ -138,7 +139,7 @@ public class LockPresenter implements LockContract.Presenter {
     }
 
 
-     double[][] values=new double[100][MFCC.LEN_MELREC];
+     double[][] values=new double[100][FEATURE_NUM];
      double max_distance=0,ave_distance=0;
      int data_num=0;
     public void initData(){
@@ -154,7 +155,7 @@ public class LockPresenter implements LockContract.Presenter {
             String feature;
             while((feature=br.readLine())!=null){
                 String[] features=feature.split(" ");
-                for(int i=1;i<MFCC.LEN_MELREC&&i<features.length;i++){
+                for(int i=1;i<FEATURE_NUM&&i<features.length;i++){
                     values[line_num][i-1]=Double.valueOf((features[i].split(":"))[1]);
                 }
                 line_num++;
@@ -494,6 +495,7 @@ public class LockPresenter implements LockContract.Presenter {
             BufferedWriter bw = null;
             //让wavwriter更新wav文件长度信息
             stop();
+            double energy=getEnergy(signal);
 
             //将int类型的声音数据转换为double类型数据
             byte[] buffer = new byte[signal.length*2];
@@ -513,13 +515,14 @@ public class LockPresenter implements LockContract.Presenter {
 //            }
 
             //用MFCC获取声音的特征值，存入featureDouble数组中
-            Double[] featureDouble = null;
+            Double[] featureDouble = new Double[FEATURE_NUM];
             try {
                 String path=FileUtil.getFilePathName(FileUtil.TEST_RECORD);
                 File file=new File(path);
                 File parent=new File(file.getParent());
                 parent.mkdirs();
-                featureDouble = MFCC.mfcc(file.getAbsolutePath(), buffer, signal.length, 44100);
+                System.arraycopy(MFCC.mfcc(file.getAbsolutePath(), buffer, signal.length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
+                featureDouble[FEATURE_NUM-1]=energy;
 
          //       featureDouble=z_score(featureDouble);
                // featureDouble=sum_normal(featureDouble);
@@ -564,6 +567,17 @@ public class LockPresenter implements LockContract.Presenter {
 
 
             return null;
+        }
+
+        public double getEnergy(int[] signal){
+            double energy=0;
+            for(int i=0;i<signal.length;i++){
+                energy+=signal[i];
+            }
+            energy/=signal.length;
+            energy=Math.abs(energy);
+            energy=Math.log(energy)/Math.log(2);
+            return energy;
         }
 
         @RequiresApi(api = Build.VERSION_CODES.N)
@@ -626,30 +640,50 @@ public class LockPresenter implements LockContract.Presenter {
             int user_count=0;
             double ave_dis=0;
             for(int i=0;i<data_num;i++){
-                Test2Activity.Point p=new Test2Activity.Point(values[i],1);
-                p.calDis(features);
-                list.add(p);
-                    ave_dis+=p.distance;
+                ave_dis+=getDis(features,values[i]);
+
                     user_count++;
             }
             ave_dis/=user_count;
             Log.d(TAG,"ave_dis:"+ave_dis);
-            if(ave_dis<ave_distance+(max_distance-ave_distance)/2 ) {
+            if(ave_dis<ave_distance+(max_distance-ave_distance)/3 ) {
                 return true;
             }else{
                 return false;
             }
         }
+
+        /*
+    2019/10/14 调整1.2.3.6.7.8特征比重，降低其他比重
+ */
+        public double getDis(Double[] p1,double[] p2){
+            double dis=0;
+            for(int i=0;i<FEATURE_NUM;i++){
+                switch(i+1) {
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 6:
+                    case 7:
+                    case 8:
+                        dis += 1.2 * Math.pow(p1[i] - p2[i], 2);
+                    default:
+                        dis += 0.8 * Math.pow(p1[i] - p2[i], 2);
+                }
+            }
+            dis=Math.sqrt(dis);
+            return dis;
+        }
         private Double[] sd_normal(Double[] feature){
             double[] sd=TrainPresenter.sd;
-            for(int i=0;i<MFCC.LEN_MELREC;i++){
+            for(int i=0;i<FEATURE_NUM;i++){
                 feature[i]=feature[i]/sd[i];
             }
             return feature;
         }
         private Double[] sum_normal(Double[] feature){
             double[] sum=TrainPresenter.sum;
-            for(int i=0;i<MFCC.LEN_MELREC;i++){
+            for(int i=0;i<FEATURE_NUM;i++){
                 feature[i]=feature[i]/sum[i];
             }
             return feature;
@@ -657,7 +691,7 @@ public class LockPresenter implements LockContract.Presenter {
         private Double[] mean_normal(Double[] feature){
             double[] max=TrainPresenter.max;
             double[] min=TrainPresenter.min;
-            for(int i=0;i<MFCC.LEN_MELREC;i++){
+            for(int i=0;i<FEATURE_NUM;i++){
                 feature[i]=(feature[i]-min[i])/(max[i]-min[i]);
             }
             return feature;
@@ -665,7 +699,7 @@ public class LockPresenter implements LockContract.Presenter {
         private Double[] z_score(Double[] feature){
             double[] variance=TrainPresenter.variance;
             double[] average=TrainPresenter.average;
-            for(int i=0;i<MFCC.LEN_MELREC;i++){
+            for(int i=0;i<FEATURE_NUM;i++){
                 feature[i]=(feature[i]-average[i])/variance[i];
             }
             return feature;

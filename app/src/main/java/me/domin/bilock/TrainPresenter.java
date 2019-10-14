@@ -79,6 +79,7 @@ public class TrainPresenter implements TrainContract.Presenter{
     int readChunkSize = fftlen;  // Every hopLen one fft result (overlapped analyze window)
     short[] audioSamples = new short[readChunkSize];
     int bufferSampleSize = Math.max(minBytes / 2, fftlen / 2) * 2;
+    final static int FEATURE_NUM=MFCC.LEN_MELREC+1;
 
     @SuppressLint("SetTextI18n")
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
@@ -109,6 +110,13 @@ public class TrainPresenter implements TrainContract.Presenter{
         bufferSampleSize = (int) Math.ceil(1.0 * sampleRate / bufferSampleSize) * bufferSampleSize;
     }
 
+    /**
+        * @Title: trainModel
+    　　* @Description:  读取所有的特征值文件，整合到一起，记录数据，并计算样本之间距离的最大值和平均值
+    　　* @param
+    　　* @return
+    　　* @throws
+    　　*/
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
     @Override
     public void trainModel(int normal_type) {
@@ -119,12 +127,12 @@ public class TrainPresenter implements TrainContract.Presenter{
         byte[] buffer=new byte[10240];
         int length=0;
 
-       values=new double[200][MFCC.LEN_MELREC];
+       values=new double[200][FEATURE_NUM];
        user=new int[200];
         count=0;
         double value;
 
-        for(int i=0;i<MFCC.LEN_MELREC;i++){
+        for(int i=0;i<FEATURE_NUM;i++){
             average[i]=0;
             max[i]=-9999;
             min[i]=9999;
@@ -165,7 +173,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 }
             }
 
-            for(int i=0;i<MFCC.LEN_MELREC;i++){
+            for(int i=0;i<FEATURE_NUM;i++){
                 average[i]=sum[i]/count;
                 sd[i]=Math.sqrt(sd[i]);
             }
@@ -180,6 +188,7 @@ public class TrainPresenter implements TrainContract.Presenter{
 
             getLimit();
             String s="average distance:"+ave_dis+"\r\n"+"max distance: "+max_dis+"\r\n";
+            Log.d(TAG,s);
             bw.write(s.getBytes("UTF-8"));
             for(int i=1;i<=count;i++){
                 StringBuilder sb=new StringBuilder();
@@ -188,7 +197,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 else
                     sb.append("-1");
                 sb.append(" ");
-                for(int j=1;j<=MFCC.LEN_MELREC;j++){
+                for(int j=1;j<=FEATURE_NUM;j++){
                     sb.append(j);
                     sb.append(":");
                     sb.append(values[i-1][j-1]);
@@ -214,6 +223,13 @@ public class TrainPresenter implements TrainContract.Presenter{
     }
 
     public static double ave_dis=0,max_dis=0,min_dis=10000;
+    /**
+        * @Title: getLimit
+    　　* @Description: 该方法用于计算合法样本中单个样本到其他样本的距离的平均值以及最大值，2019/10/14修改，提高部分特征值的比重。
+    　　* @param
+    　　* @return
+    　　* @throws
+    　　*/
     public void getLimit(){
         double[] distance=new double[count];
 
@@ -230,10 +246,23 @@ public class TrainPresenter implements TrainContract.Presenter{
         ave_dis/=count;
 
     }
+    /*
+        2019/10/14 调整1.2.3.6.7.8特征比重，降低其他比重
+     */
     public double getDis(double[] p1,double[] p2){
         double dis=0;
-        for(int i=0;i<MFCC.LEN_MELREC;i++){
-            dis+=Math.pow(p1[i]-p2[i],2);
+        for(int i=0;i<FEATURE_NUM;i++){
+            switch(i+1) {
+                case 1:
+                case 2:
+                case 3:
+                case 6:
+                case 7:
+                case 8:
+                    dis += 1.2 * Math.pow(p1[i] - p2[i], 2);
+                default:
+                    dis += 0.8 * Math.pow(p1[i] - p2[i], 2);
+            }
         }
         dis=Math.sqrt(dis);
         return dis;
@@ -247,12 +276,12 @@ public class TrainPresenter implements TrainContract.Presenter{
         byte[] buffer=new byte[10240];
         int length=0;
 
-        values=new double[200][MFCC.LEN_MELREC];
+        values=new double[200][FEATURE_NUM];
         user=new int[200];
         count=0;
         double value;
 
-        for(int i=0;i<MFCC.LEN_MELREC;i++){
+        for(int i=0;i<FEATURE_NUM;i++){
             average[i]=0;
             max[i]=-9999;
             min[i]=9999;
@@ -292,7 +321,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                     //dis.close();
                 }
             }
-            for(int i=0;i<MFCC.LEN_MELREC;i++){
+            for(int i=0;i<FEATURE_NUM;i++){
                 average[i]=sum[i]/count;
                 sd[i]=Math.sqrt(sd[i]);
             }
@@ -312,7 +341,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 else
                     sb.append("-1");
                 sb.append(" ");
-                for(int j=1;j<=MFCC.LEN_MELREC;j++){
+                for(int j=1;j<=FEATURE_NUM;j++){
                     sb.append(j);
                     sb.append(":");
                     sb.append(values[i-1][j-1]);
@@ -336,15 +365,15 @@ public class TrainPresenter implements TrainContract.Presenter{
     }
 
 
-    static double[] variance=new double[MFCC.LEN_MELREC];
-    static double[] average=new double[MFCC.LEN_MELREC];
-    static double[] max=new double[MFCC.LEN_MELREC];
-    static double[] min=new double[MFCC.LEN_MELREC];
-    static double[] sum=new double[MFCC.LEN_MELREC];
-    static double[] sd=new double[MFCC.LEN_MELREC];
+    static double[] variance=new double[FEATURE_NUM];
+    static double[] average=new double[FEATURE_NUM];
+    static double[] max=new double[FEATURE_NUM];
+    static double[] min=new double[FEATURE_NUM];
+    static double[] sum=new double[FEATURE_NUM];
+    static double[] sd=new double[FEATURE_NUM];
     private double[][] sum_normal(double[][] values,double[] sum,int numOfSample){
         for(int i=0;i<numOfSample;i++){
-            for(int j=0;j<MFCC.LEN_MELREC;j++){
+            for(int j=0;j<FEATURE_NUM;j++){
                 values[i][j]=values[i][j]/sum[j];
             }
         }
@@ -352,7 +381,7 @@ public class TrainPresenter implements TrainContract.Presenter{
     }
     private double[][] sd_normal(double[][] values,double[] sd,int numOfSample){
         for(int i=0;i<numOfSample;i++){
-            for(int j=0;j<MFCC.LEN_MELREC;j++){
+            for(int j=0;j<FEATURE_NUM;j++){
                 values[i][j]=values[i][j]/sd[j];
             }
         }
@@ -368,7 +397,7 @@ public class TrainPresenter implements TrainContract.Presenter{
     private double[][] mean_normal(double
                                            [][] values,double[] min,double[] max,int numOfSample){
         for(int i=0;i<numOfSample;i++){
-            for(int j=0;j<MFCC.LEN_MELREC;j++){
+            for(int j=0;j<FEATURE_NUM;j++){
                 values[i][j]=(values[i][j]-min[j])/(max[j]-min[j]);
             }
         }
@@ -387,15 +416,15 @@ public class TrainPresenter implements TrainContract.Presenter{
 
 
         for(int i=0;i<count;i++){
-            for(int j=0;j<MFCC.LEN_MELREC;j++){
+            for(int j=0;j<FEATURE_NUM;j++){
                 variance[j]+=Math.pow((values[i][j]-average[j]),2);
             }
         }
-        for(int j=0;j<MFCC.LEN_MELREC;j++){
+        for(int j=0;j<FEATURE_NUM;j++){
             variance[j]=(double)Math.sqrt((double)variance[j]/count);
         }
         for(int i=0;i<count;i++){
-            for(int j=0;j<MFCC.LEN_MELREC;j++){
+            for(int j=0;j<FEATURE_NUM;j++){
                 values[i][j]=(values[i][j]-average[j])/variance[j];
             }
         }
@@ -437,13 +466,14 @@ public class TrainPresenter implements TrainContract.Presenter{
 
                 int[] signal = wavWriter.getSignal();
                 BufferedWriter bw = null;
+                //get average energy
+                double energy = getEnergy(signal);
 
 
-
-                byte[] buffer = new byte[signal.length*2];
+                byte[] buffer = new byte[signal.length * 2];
                 for (int i = 0; i < signal.length; i++) {
-                    buffer[2*i]=(byte)(signal[i]&0xff);
-                    buffer[2*i+1]=(byte)((signal[i]>>8)&0xff);
+                    buffer[2 * i] = (byte) (signal[i] & 0xff);
+                    buffer[2 * i + 1] = (byte) ((signal[i] >> 8) & 0xff);
                 }
 
 
@@ -451,33 +481,22 @@ public class TrainPresenter implements TrainContract.Presenter{
 
 
 
-
-                /*DateFormat df = new SimpleDateFormat("yyyy-MM-dd_HH'h'mm'm'ss.SSS's'", Locale.US);
-                String nowStr = df.format(new Date());
-                Double[] featureDouble = null;
-                try {
-                    featureDouble = MFCC.mfcc(LockPresenter.absolutePath + "/MFCC/Feature.txt", buffer, singal.length, 44100);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    bw = createBufferedWriter(LockPresenter.absolutePath, "/Bilock/" + username + "/" + nowStr + ".txt");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }*/
-
                 /*
                     修改日期：2019/6/5
                     修改内容：改变写入的文件路径
                     修改人：July
                  */
                 //提取特征值
-                Double[] featureDouble = null;
-                 String path=FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
+                /*
+                    修改日期：2019/10/14
+                    修改内容：将平均能量算入特征值之一
+                 */
+                Double[] featureDouble = new Double[FEATURE_NUM];
+                String path = FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
                 try {
 
-                    featureDouble = MFCC.mfcc(path, buffer, signal.length, 44100);
+                    System.arraycopy( MFCC.mfcc(path, buffer, signal.length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
+                    featureDouble[FEATURE_NUM-1]=energy;
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -487,13 +506,11 @@ public class TrainPresenter implements TrainContract.Presenter{
                     @Override
                     public void run() {
                         super.run();*/
-                        shortWriter.setPathandStart(path.substring(0,path.indexOf(".txt"))+".wav");
-                        shortWriter.write(signal,signal.length);
-                        shortWriter.stop();
+                shortWriter.setPathandStart(path.substring(0, path.indexOf(".txt")) + ".wav");
+                shortWriter.write(signal, signal.length);
+                shortWriter.stop();
                /*     }
                 }.start();*/
-
-
 
 
                 try {
@@ -520,6 +537,23 @@ public class TrainPresenter implements TrainContract.Presenter{
             record.release();
             trainModel(NONE);
             view.finishTrain();
+        }
+        /**
+            * @Title: getEnergy
+        　　* @Description: 算能量的平均值，并求以2为底的对数
+        　　* @param        声音信号
+        　　* @return        能量值
+        　　* @throws
+        　　*/
+        private double getEnergy(int[] signal){
+            double energy=0;
+            for(int i=0;i<signal.length;i++){
+                energy+=signal[i];
+            }
+            energy/=signal.length;
+            energy=Math.abs(energy);
+            energy=Math.log(energy)/Math.log(2);
+            return energy;
         }
         private void writeData(Double feature[], BufferedWriter bw) {
 

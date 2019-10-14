@@ -120,7 +120,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
  //       intentToMain = new Intent(LockScreenActivity.this, MainActivity.class);
 //        fragment = (WaveRecordFragment) getSupportFragmentManager().findFragmentById(R.id.wave_record);
         mPresenter = new LockPresenter(this);
-        mPresenter.initData();
+      //  mPresenter.initData();
         textView = findViewById(R.id.profile_name);
         button = findViewById(R.id.button);
         load = findViewById(R.id.load);

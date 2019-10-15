@@ -120,7 +120,8 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
  //       intentToMain = new Intent(LockScreenActivity.this, MainActivity.class);
 //        fragment = (WaveRecordFragment) getSupportFragmentManager().findFragmentById(R.id.wave_record);
         mPresenter = new LockPresenter(this);
-      //  mPresenter.initData();
+        mPresenter.initData();
+        mPresenter.startRecord(LockPresenter.NONE);
         textView = findViewById(R.id.profile_name);
         button = findViewById(R.id.button);
         load = findViewById(R.id.load);
@@ -237,7 +238,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         Log.e(LockPresenter.TAG,"onResume is used");
         mPresenter.initData();
         Log.e(LockPresenter.TAG,"initData from onResume is used");
-        mPresenter.startRecord(LockPresenter.NONE);
+      //  mPresenter.startRecord(LockPresenter.NONE);
         //用于申请该活动所有的权限
         LockScreenActivityPermissionsDispatcher.askForPermissionWithPermissionCheck(this);
         //开启线程，实时更新画面
@@ -294,6 +295,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     public void unlockSuccess() {
         Toast.makeText(LockScreenActivity.this, "Welcome", Toast.LENGTH_SHORT).show();
         soundOfUnlock();
+        mPresenter.stopRecorder();
 //        System.exit(0);
         Intent intent = new Intent(LockScreenActivity.this, Test2Activity.class);
         startActivity(intent);
@@ -303,9 +305,9 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     public void unlockFail() {
         shake();
         //Toast.makeText(LockScreenActivity.this, "Wrong Pin code", Toast.LENGTH_SHORT).show();
-        mPresenter.initData();
-        Log.e(LockPresenter.TAG,"initData from UnlockFail is used");
-        mPresenter.currentRecordTaskNew();
+       // mPresenter.initData();
+        //Log.e(LockPresenter.TAG,"initData from UnlockFail is used");
+        //mPresenter.currentRecordTaskNew();
     }
 
 }

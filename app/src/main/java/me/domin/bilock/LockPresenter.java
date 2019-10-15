@@ -174,10 +174,15 @@ public class LockPresenter implements LockContract.Presenter {
     }
 
 
+    CurrentRecordTaskNew task;
     @Override
     public void currentRecordTaskNew() {
+        if(task!=null&&!task.isCancelled()){
+            task.cancel(true);
+        }
         isRecord = true;
-        new CurrentRecordTaskNew().execute();
+        task=(new CurrentRecordTaskNew());
+        task.execute();
     }
 
 
@@ -466,109 +471,102 @@ public class LockPresenter implements LockContract.Presenter {
         　　*/
         protected Void doInBackground(Void... voids) {
 //            int bufferSampleSize = Math.max(minBytes / 2, fftlen / 2) * 2;
-            Log.d(TAG,"recordtask is made");
-            wavWriter.start();
-            int max = 0;
-            int num = 0;
-            //max < MAX_NOISE
-            //一直读取录音数据，直到获取两个在阈值范围内的峰值，视作牙齿咬合声音
-            while (num != 2 && isRecord) {
-                numOfReadShort = record.read(audioSamples, 0, readChunkSize);   // pulling
-                max = wavWriter.pushAudioShortNew(audioSamples, numOfReadShort);  // Maybe move this to another thread?
-                mLockView.updateMax(max);
-                if (max == -1)
-                    num++;
-            }
+            Log.d(TAG, "AsyncTask is made"+Thread.currentThread().getId());
+            while (!isCancelled()) {
+                wavWriter.start();
+                int max = 0;
+                int num = 0;
+                //max < MAX_NOISE
+                //一直读取录音数据，直到获取两个在阈值范围内的峰值，视作牙齿咬合声音
+                while (num != 2 && isRecord) {
+                    if(isCancelled())
+                        return null;
+                    numOfReadShort = record.read(audioSamples, 0, readChunkSize);   // pulling
+                    max = wavWriter.pushAudioShortNew(audioSamples, numOfReadShort);  // Maybe move this to another thread?
+                    mLockView.updateMax(max);
+                    if (max == -1)
+                        num++;
+                }
 
-//            for (int i = 0; i < audioSamples.length; i++) {
-//                audioSamples[i] = 1000;
-//            }
-            if (!isRecord)
-            {
-                record.stop();
-                record.release();
-                return null;
-            }
-            //获取wavWriter提取好的声音峰值
-            int[] signal = wavWriter.getSignal();
+                if (!isRecord) {
+                    record.stop();
+                    record.release();
+                    return null;
+                }
+                //获取wavWriter提取好的声音峰值
+                int[] signal = wavWriter.getSignal();
 
-            BufferedWriter bw = null;
-            //让wavwriter更新wav文件长度信息
-            stop();
-            double energy=getEnergy(signal);
+                BufferedWriter bw = null;
+                //让wavwriter更新wav文件长度信息
+                stop();
+                double energy = getEnergy(signal);
 
-            //将int类型的声音数据转换为double类型数据
-            byte[] buffer = new byte[signal.length*2];
-            for (int i = 0; i < signal.length; i++) {
-                buffer[2*i]=(byte)(signal[i]&0xff);
-                buffer[2*i+1]=(byte)((signal[i]>>8)&0xff);
-            }
-
-//            try {
-//                bw = createBufferedWriter(absolutePath + "/signal/", "air.txt");
-//                for (int i = 0; i < signal.length; i++) {
-//                    bw.write(buffer[i] + " ");
-//                }
-//                bw.flush();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-
-            //用MFCC获取声音的特征值，存入featureDouble数组中
-            Double[] featureDouble = new Double[FEATURE_NUM];
-            try {
-                String path=FileUtil.getFilePathName(FileUtil.TEST_RECORD);
-                File file=new File(path);
-                File parent=new File(file.getParent());
-                parent.mkdirs();
-                System.arraycopy(MFCC.mfcc(file.getAbsolutePath(), buffer, signal.length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
-                featureDouble[FEATURE_NUM-1]=energy;
-
-         //       featureDouble=z_score(featureDouble);
-               // featureDouble=sum_normal(featureDouble);
-//            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-//        normalizationData(maxBuffer, minBuffer, featureDouble);
-
-//        File file2 = new File(dictionaryPath + "testRecord.txt");
-            String path=FileUtil.getFilePathName(FileUtil.TEST_FEATURE);
-            try {
-                bw = createBufferedWriter(path);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+                //将int类型的声音数据转换为double类型数据
+                byte[] buffer = new byte[signal.length * 2];
+                for (int i = 0; i < signal.length; i++) {
+                    buffer[2 * i] = (byte) (signal[i] & 0xff);
+                    buffer[2 * i + 1] = (byte) ((signal[i] >> 8) & 0xff);
+                }
 
 
-            //将所有MFCC特征写入文件
-            //将数据存入文件
-//            Log.d(TAG, "writeModel: flag = " + flag + " len = " + feature.length);
+                //用MFCC获取声音的特征值，存入featureDouble数组中
+                Double[] featureDouble = new Double[FEATURE_NUM];
+                String recordPath = FileUtil.getFilePathName(FileUtil.TEST_RECORD);
+                try {
+                    System.arraycopy(getMFCCFeatures(recordPath, buffer, signal.length),
+                            0, featureDouble, 0, MFCC.LEN_MELREC);
+                    featureDouble[FEATURE_NUM - 1] = energy;
+                    //       featureDouble=z_score(featureDouble);
+                    // featureDouble=sum_normal(featureDouble);
+                    //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                //        normalizationData(maxBuffer, minBuffer, featureDouble);
 
-            writeData(featureDouble, bw);
+                //        File file2 = new File(dictionaryPath + "testRecord.txt");
+                String path = FileUtil.getFilePathName(FileUtil.TEST_FEATURE);
+                try {
+                    bw = createBufferedWriter(path);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
 
-            //调用svmPredict方法判断特征是否合法，并调用publishProgress更新结果
-           /* try {
-                if ((MFCC.svmPredict(path)) == 1) {
+                //将所有MFCC特征写入文件
+                //将数据存入文件
+                //            Log.d(TAG, "writeModel: flag = " + flag + " len = " + feature.length);
+
+                writeData(featureDouble, bw);
+
+
+                //调用svmPredict方法判断特征是否合法，并调用publishProgress更新结果
+                   /* try {
+                        if ((MFCC.svmPredict(path)) == 1) {
+                            publishProgress(true);
+                        } else {
+                            publishProgress(false);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }*/
+
+                if (ONE_CLASS_KNN(featureDouble, type)) {
                     publishProgress(true);
                 } else {
                     publishProgress(false);
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }*/
-
-           if(ONE_CLASS_KNN(featureDouble,type)){
-               publishProgress(true);
-           }else {
-               publishProgress(false);
-           }
-
-
+            }
+            Log.d(TAG, "AsyncTask come to the end"+Thread.currentThread().getId());
             return null;
         }
+        public Double[] getMFCCFeatures(String path,byte[] buffer,int length) throws IOException{
+            File file=new File(path);
+            File parent=new File(file.getParent());
+            parent.mkdirs();
+            return MFCC.mfcc(path, buffer, length, 44100);
 
+        }
         public double getEnergy(int[] signal){
             double energy=0;
             for(int i=0;i<signal.length;i++){
@@ -641,16 +639,16 @@ public class LockPresenter implements LockContract.Presenter {
             double ave_dis=0;
             for(int i=0;i<data_num;i++){
                 ave_dis+=getDis(features,values[i]);
-
                     user_count++;
             }
             ave_dis/=user_count;
             Log.d(TAG,"ave_dis:"+ave_dis);
-            if(ave_dis<ave_distance+(max_distance-ave_distance)/3 ) {
+            if(ave_dis<ave_distance+(max_distance-ave_distance)/3  ) {
                 return true;
             }else{
                 return false;
             }
+
         }
 
         /*

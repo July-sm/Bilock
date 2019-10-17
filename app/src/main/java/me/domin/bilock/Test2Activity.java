@@ -372,7 +372,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     }
     //用已有的模型测试/data/user/test 和 /data/noise/test两个文件夹中的声音文件（根据传入的类型选择一个），测试准确率
     @SuppressLint("NewApi")
-    public void testForTest(int type,int normal_type){
+    public void testForTest(int type,int normal_type,BufferedWriter bw){
 
         File parent=null;
         double max_count=0,min_count=100,ave_count=0;
@@ -386,8 +386,9 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                 if(file.getName().contains("Record")){
                     FileInputStream fis=null;
                     byte[] buffer=new byte[2048];
-                    Double[] featureDouble = null;
+                    Double[] featureDouble=new Double[TrainPresenter.FEATURE_NUM];
                     int length=0;
+                    double energy=0;
                     int data_length=0;
                         try{
                             data_length=0;
@@ -395,21 +396,25 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                             fis.skip(44);
                             while((length=fis.read(buffer))!=-1){
                                 for(int i=0;i<length;i=i+2){
-                                    //  data[data_length]=(double)(((short)buffer[i+1]<<8)|((short)buffer[i]&0xff));
+                                    energy+= (double)(((short)buffer[i+1]<<8)|((short)buffer[i]&0xff));
                                     data_length++;
                                 }
                             }
+                            energy/=data_length;
+                            energy=Math.abs(energy);
+                            energy=Math.log(energy)/Math.log(2);
                             String path=FileUtil.getFilePathName(FileUtil.TEST_RECORD);
-                            featureDouble = MFCC.mfcc(path, buffer , data_length, 44100);
+                            System.arraycopy(MFCC.mfcc(path, buffer , data_length, 44100),0, featureDouble,0,MFCC.LEN_MELREC);
+                            featureDouble[TrainPresenter.FEATURE_NUM-1]=energy;
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
 
-                           /* double count=KNN(featureDouble,normal_type);
+                           double count=ONE_CLASS_KNN(featureDouble,normal_type);
                             max_count=count>max_count?count:max_count;
                             min_count=count<min_count?count:min_count;
-                            ave_count+=count;*/
-                            if(ONE_CLASS_KNN(featureDouble,normal_type)){
+                            ave_count+=count;
+                            if(count<TrainPresenter.ave_dis+(TrainPresenter.max_dis-TrainPresenter.ave_dis)/3){
                                 //toast("Unlock successfully!");
                                 right++;
                                 total++;
@@ -435,6 +440,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                 }
             }
             ave_count/=files.length;
+            bw.write("Type:"+type+"; min:"+min_count+"; max:"+max_count+"; average:"+ave_count+"\r\n");
             Log.d(TAG,"Type:"+type+"; min:"+min_count+"; max:"+max_count+"; average:"+ave_count);
 
         } catch (Exception e) {
@@ -497,7 +503,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     }
 
 
-    public boolean ONE_CLASS_KNN(Double[] features,final int normal_type){
+    public double ONE_CLASS_KNN(Double[] features,final int normal_type){
         switch(normal_type){
             case Z_SCORE:  features=z_score(features);break;
             case MEAN: features=mean_normal(features);break;
@@ -522,11 +528,12 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         }
         avg_distance/=user_count;
 
-        if(avg_distance<mid_dis+(max_dis-mid_dis)/5){
+        return avg_distance;
+        /*if(avg_distance<mid_dis+(max_dis-mid_dis)/3){
             return true;
         }else{
             return false;
-        }
+        }*/
     }
 
     /*
@@ -547,6 +554,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     case 1:
                     case 2:
                     case 3:
+                    case 4:
                     case 6:
                     case 7:
                     case 8:
@@ -581,7 +589,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         //设置上下限
         int user_down_limit=10;
         int user_up_limit=10;
-        int noise_down_limit=10;
+        int noise_down_limit=0;
         int noise_up_limit=10;
         int interval=1;
         //初始样本数都为10，处理方法为不作处理
@@ -630,45 +638,67 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                         file.renameTo(new File(noise_train, file.getName()));
                     } while (noise_train.listFiles().length < noise_sample_num);
                 }
-                for(;noise_sample_num<=noise_up_limit;){
 
+
+
+//                for(;noise_sample_num<=noise_up_limit;){
+                for(int j=0;j<=10;j++){
+                    //to ensure the number of user train sample
+                    user_sample=user_train.listFiles();
+                    if(user_sample.length>user_sample_num) {
+                        do {
+                            user_sample = user_train.listFiles();
+                            File file = user_sample[random.nextInt(user_sample.length)];
+                            file.renameTo(new File(user_test, file.getName()));
+                        } while (user_sample.length > user_sample_num);
+                    }else if(user_sample.length<user_sample_num){
+                        do {
+                            user_sample = user_test.listFiles();
+                            File file = user_sample[random.nextInt(user_sample.length)];
+                            file.renameTo(new File(user_train, file.getName()));
+                        } while (user_train.listFiles().length < user_sample_num);
+                    }
                     clearFile();
                     trainForTest(USER);
                     //trainForTest(OTHER);
                     mPresenter.trainModel(normal_type);
 
                     bw.write("legal sample:"+user_sample_num+",illegal sample:"+noise_sample_num+";");
+                    bw.write("ave_dis:"+TrainPresenter.ave_dis+";  max_dis:"+TrainPresenter.max_dis+";\r\n");
 
-                    testForTest(USER,normal_type);
+                    testForTest(USER,normal_type,bw);
                     rightRate=(double)(right)/(double)total;
                     double legal_rightRate=rightRate;
 
-                    bw.write("legal: right num:"+right+",wrong num:"+wrong+",accuracy:"+String.valueOf(rightRate));
+                    bw.write("legal: right num:"+right+",wrong num:"+wrong+",accuracy:"+String.valueOf(rightRate)+"\r\n");
 
                     right=wrong=0;
                     rightRate=0;
                     total=0;
-                    testForTest(OTHER,normal_type);
+                    testForTest(OTHER,normal_type,bw);
                     rightRate=(double)(wrong)/(double)total;
                     double illegal_rightRate=rightRate;
 
-                    bw.write(" illegal: right num:"+right+",wrong num:"+wrong+",accuracy:"+String.valueOf(rightRate));
+                    bw.write(" illegal: right num:"+right+",wrong num:"+wrong+",accuracy:"+String.valueOf(rightRate)+"\r\n");
                     bw.write("\r\n");
                     bw.flush();
 
 
+                    for(File file:user_train.listFiles()){
+                        file.renameTo(new File(user_test,file.getName()));
+                    }
 
                     noise_sample_num+=interval;
                     noise_sample=noise_test.listFiles();
                     int i=interval;
                     //将测试样本随机n个移动到训练样本中
-                    while(i>0){
+                    /*while(i>0){
                         File file=noise_sample[random.nextInt(noise_sample.length)];
                         if(file.getParent().contains("test")){
                             file.renameTo(new File(noise_train,file.getName()));
                             i--;
                         }
-                    }
+                    }*/
                 }
                 //将所有测试样本移动到训练样本中，随机留下几个
                 File[] noise=noise_train.listFiles();
@@ -680,14 +710,16 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                 user_sample=user_test.listFiles();
                 if(user_sample.length==0)
                     break;
+                //将interval个合法测试样本移到训练样本中
                 int i=interval;
-                while(i>0){
+               /* while(i>0){
                     File file=user_sample[random.nextInt(user_sample.length)];
                     if(file.getParent().contains("test")){
                         file.renameTo(new File(user_train,file.getName()));
                         i--;
                     }
-                }
+                }*/
+
             }
        // }
 
@@ -732,19 +764,24 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         int data_length=0;
         for(File file:files){
             try {
+                double energy=0;
                 data_length=0;
                 fis = new FileInputStream(file);
                 fis.skip(44);
                 while((length=fis.read(buffer))!=-1){
                     for(int i=0;i<length;i=i+2){
-                      //  data[data_length]=(double)(((short)buffer[i+1]<<8)|((short)buffer[i]&0xff));
+                        energy+=(double)(((short)buffer[i+1]<<8)|((short)buffer[i]&0xff));
                         data_length++;
                     }
                 }
+                energy/=data_length;
+                energy=Math.abs(energy);
+                energy=Math.log(energy)/Math.log(2);
+                featureDouble=new Double[TrainPresenter.FEATURE_NUM];
                 String path=FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
                 try {
-
-                    featureDouble = MFCC.mfcc(path, buffer , data_length, 44100);
+                    System.arraycopy(MFCC.mfcc(path, buffer , data_length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
+                    featureDouble[TrainPresenter.FEATURE_NUM-1]=energy;
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

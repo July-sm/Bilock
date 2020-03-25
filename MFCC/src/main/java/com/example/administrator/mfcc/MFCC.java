@@ -20,6 +20,7 @@ import java.util.Arrays;
 
 import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioProcessor;
+import be.tarsos.dsp.ZeroCrossingRateProcessor;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
 
@@ -54,7 +55,7 @@ public class MFCC {
 
 
     @RequiresApi(api = Build.VERSION_CODES.GINGERBREAD)
-    public static Double[] mfcc(String absolutePath, byte[] bufferByte, int length, int i) throws IOException {
+    public static Double[] getFeatures(String absolutePath, byte[] bufferByte, int length, int i) throws IOException {
         int sampleRate = 44100;
         int bufferSize = 1024;
         int bufferOverlap = 512;
@@ -94,7 +95,9 @@ public class MFCC {
 //        final float[] floatBuffer = TestUtilities.audioBufferSine();
 //        final AudioDispatcher dispatcher = AudioDispatcherFactory.fromFloatArray(floatBuffer, sampleRate, bufferSize, bufferOverlap);
         AudioDispatcher dispatcher = new AudioDispatcher(new UniversalAudioInputStream(bis, new TarsosDSPAudioFormat(sampleRate, sampleSizeInBits, 1, true, false)), bufferSize, bufferOverlap);
-        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, LEN_MELREC, 26, 300, 3000,20);
+        final be.tarsos.dsp.mfcc.MFCC mfcc = new be.tarsos.dsp.mfcc.MFCC(bufferSize, sampleRate, 13, 26, 300, 3000,20);
+        final ZeroCrossingRateProcessor zcr=new ZeroCrossingRateProcessor();
+        final FeatureProcessor featureProcessor=new FeatureProcessor(bufferSize,60,120);
         dispatcher.addAudioProcessor(mfcc);
         dispatcher.addAudioProcessor(new AudioProcessor() {
 
@@ -107,14 +110,27 @@ public class MFCC {
                 return true;
             }
         });
+        dispatcher.addAudioProcessor(zcr);
+        dispatcher.addAudioProcessor(featureProcessor);
         dispatcher.run();
 
-        float[] data = mfcc.getMFCC();
-        Double data2[] = new Double[data.length];
-        for (int j = 0; j < data.length; j++) {
-            data2[j] = (double) data[j];
+        float[] features = new float[LEN_MELREC];
+        System.arraycopy(mfcc.getMFCC(),0,features,0,mfcc.getMFCC().length);
+       /*features[13]=zcr.getZeroCrossingRate();
+        features[14]=featureProcessor.getBandWidth();
+        features[15]=featureProcessor.getEntropy();
+        features[16]=featureProcessor.getATR();
+        features[17]=featureProcessor.getAMR();
+      /* features[0]=zcr.getZeroCrossingRate();
+        features[1]=featureProcessor.getBandWidth();
+        features[2]=featureProcessor.getEntropy();
+        features[3]=featureProcessor.getATR();
+        features[4]=featureProcessor.getAMR();*/
+        Double featureDouble[] = new Double[features.length];
+        for (int j = 0; j < featureDouble.length; j++) {
+            featureDouble[j] = (double) features[j];
         }
-        return data2;
+        return featureDouble;
     }
     public static void svmTrain() throws IOException {
 

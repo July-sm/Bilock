@@ -35,6 +35,11 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
 
+import be.tarsos.dsp.AudioDispatcher;
+import be.tarsos.dsp.AudioProcessor;
+import be.tarsos.dsp.ZeroCrossingRateProcessor;
+import be.tarsos.dsp.io.TarsosDSPAudioFormat;
+import be.tarsos.dsp.io.UniversalAudioInputStream;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import permissions.dispatcher.NeedsPermission;
@@ -53,6 +58,9 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     public static final int SUM=2;
     public static final int MEAN=3;
     public static final int SD=4;
+    public static final int MAX=5;
+    public static final int LEGAL=10;
+    public static final int ILLEGAL=11;
 
     private static final String TAG="Test2Activity";
 
@@ -85,7 +93,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     @BindView(R.id.tv_max)
     TextView tv_max;
 
-    static final public int CHANGE_NUM=0,MAX=1;
+    static final public int CHANGE_NUM=0,MAX_NUM=1;
     static final public int USER=1,OTHER=2;
     static final public int TEST_FINISH=3;
     static final public int CHANGE_MAX=4;
@@ -97,7 +105,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     int num=(int)msg.obj;
                     toast("File number:"+num);
                     break;
-                case MAX:
+                case MAX_NUM:
                     toast("train finish!");
                     bt_record.setEnabled(true);
                     bt_other.setEnabled(true);
@@ -188,6 +196,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
             public void onClick(View view) {
                 toast("start training!");
                 mPresenter.trainModel(NONE);
+                tv_data.setText("Ave:"+ TrainPresenter.ave_dis+" Max:"+TrainPresenter.max_dis);
             }
         });
 
@@ -196,7 +205,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
             public void onClick(View view) {
                 toast("test start!");
                 lockPresenter.initData();
-                lockPresenter.startRecord(NONE);
+                lockPresenter.startRecord(NONE,LEGAL);
                 bt_test.setEnabled(false);
                // testForTest(USER,NONE);
             }
@@ -323,6 +332,13 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         }
         return feature;
     }
+    private Double[] max_normal(Double[] feature){
+        double[] max=TrainPresenter.max;
+        for(int i=0;i<MFCC.LEN_MELREC;i++){
+            feature[i]=feature[i]/max[i];
+        }
+        return feature;
+    }
     public String preProcess(Double[] features) throws IOException{
 
 
@@ -388,7 +404,6 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     byte[] buffer=new byte[2048];
                     Double[] featureDouble=new Double[TrainPresenter.FEATURE_NUM];
                     int length=0;
-                    double energy=0;
                     int data_length=0;
                         try{
                             data_length=0;
@@ -396,35 +411,42 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                             fis.skip(44);
                             while((length=fis.read(buffer))!=-1){
                                 for(int i=0;i<length;i=i+2){
-                                    energy+= (double)(((short)buffer[i+1]<<8)|((short)buffer[i]&0xff));
                                     data_length++;
                                 }
                             }
-                            energy/=data_length;
-                            energy=Math.abs(energy);
-                            energy=Math.log(energy)/Math.log(2);
+
                             String path=FileUtil.getFilePathName(FileUtil.TEST_RECORD);
-                            System.arraycopy(MFCC.mfcc(path, buffer , data_length, 44100),0, featureDouble,0,MFCC.LEN_MELREC);
-                            featureDouble[TrainPresenter.FEATURE_NUM-1]=energy;
+                            System.arraycopy(MFCC.getFeatures(path, buffer , data_length, 44100),0, featureDouble,0,MFCC.LEN_MELREC);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
 
-                           double count=ONE_CLASS_KNN(featureDouble,normal_type);
+                            double count=ONE_CLASS_KNN(featureDouble,normal_type);
                             max_count=count>max_count?count:max_count;
                             min_count=count<min_count?count:min_count;
                             ave_count+=count;
-                            if(count<TrainPresenter.ave_dis+(TrainPresenter.max_dis-TrainPresenter.ave_dis)/3){
+                            if(count<TrainPresenter.ave_dis+(TrainPresenter.max_dis-TrainPresenter.ave_dis)/1.5){
                                 //toast("Unlock successfully!");
                                 right++;
                                 total++;
-                                updateData();
+                               // updateData();
                             }else{
                                 //toast("Unlock Fail!");
                                 wrong++;
                                 total++;
-                                updateData();
+                                //updateData();
                             }
+                          /*if(KNN(featureDouble,normal_type)){
+                              //toast("Unlock successfully!");
+                              right++;
+                              total++;
+                              // updateData();
+                          }else{
+                              //toast("Unlock Fail!");
+                              wrong++;
+                              total++;
+                              //updateData();
+                          }
                    /* String path=preProcess(featureDouble);
                     if ((MFCC.svmPredict(path) == 1)) {
                         //toast("Unlock successfully!");
@@ -439,6 +461,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     }*/
                 }
             }
+            updateData();
             ave_count/=files.length;
             bw.write("Type:"+type+"; min:"+min_count+"; max:"+max_count+"; average:"+ave_count+"\r\n");
             Log.d(TAG,"Type:"+type+"; min:"+min_count+"; max:"+max_count+"; average:"+ave_count);
@@ -450,12 +473,13 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
-    public double KNN(Double[] features,final int normal_type){
+    public boolean KNN(Double[] features,final int normal_type){
         switch(normal_type){
             case Z_SCORE:  features=z_score(features);break;
             case MEAN: features=mean_normal(features);break;
             case SUM:    features=sum_normal(features);break;
             case SD: features=sd_normal(features);break;
+            case MAX: features=max_normal(features);break;
             default:;
         }
         double[][] values=TrainPresenter.values;
@@ -494,21 +518,24 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
             else
                 illegal_count++;
         }
-        /*if(legal_count>=illegal_count)
+        if(legal_count>=illegal_count)
             return true;
         else
             return false;
-            */
-        return avg_distance;
+
+       // return avg_distance;
     }
 
-
+    /*
+    返回到样本点的平均距离
+     */
     public double ONE_CLASS_KNN(Double[] features,final int normal_type){
         switch(normal_type){
             case Z_SCORE:  features=z_score(features);break;
             case MEAN: features=mean_normal(features);break;
             case SUM:    features=sum_normal(features);break;
             case SD: features=sd_normal(features);break;
+            case MAX:features=max_normal(features);break;
             default:;
         }
         double[][] values=TrainPresenter.values;
@@ -559,9 +586,10 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     case 7:
                     case 8:
                         distance+=1.2*Math.pow(features[i]-values[i],2);
-                        default:
+                    default :
                             distance+=0.8*Math.pow(features[i]-values[i],2);
                 }
+               /*distance+=Math.pow(features[i]-values[i],2);*/
             }
             distance=Math.sqrt(distance);
         }
@@ -590,12 +618,12 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         int user_down_limit=10;
         int user_up_limit=10;
         int noise_down_limit=0;
-        int noise_up_limit=10;
+        int noise_up_limit=0;
         int interval=1;
         //初始样本数都为10，处理方法为不作处理
         int user_sample_num;
         int noise_sample_num;
-        int normal_type=NONE;
+        int normal_type=Z_SCORE;
 
 
 
@@ -641,8 +669,8 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
 
 
 
-//                for(;noise_sample_num<=noise_up_limit;){
-                for(int j=0;j<=10;j++){
+                for(;noise_sample_num<=noise_up_limit;){
+ //               for(int j=0;j<=10;j++){
                     //to ensure the number of user train sample
                     user_sample=user_train.listFiles();
                     if(user_sample.length>user_sample_num) {
@@ -701,25 +729,24 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
                     }*/
                 }
                 //将所有测试样本移动到训练样本中，随机留下几个
-                File[] noise=noise_train.listFiles();
+              /*  File[] noise=noise_train.listFiles();
                 for(int k=noise_down_limit;k<noise.length;k++){
                     File file=noise[k];
                     file.renameTo(new File(noise_test,file.getName()));
-                }
+                }*/
                 user_sample_num +=interval;
                 user_sample=user_test.listFiles();
                 if(user_sample.length==0)
                     break;
                 //将interval个合法测试样本移到训练样本中
                 int i=interval;
-               /* while(i>0){
+                while(i>0){
                     File file=user_sample[random.nextInt(user_sample.length)];
                     if(file.getParent().contains("test")){
                         file.renameTo(new File(user_train,file.getName()));
                         i--;
                     }
-                }*/
-
+                }
             }
        // }
 
@@ -764,24 +791,20 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         int data_length=0;
         for(File file:files){
             try {
-                double energy=0;
                 data_length=0;
                 fis = new FileInputStream(file);
                 fis.skip(44);
                 while((length=fis.read(buffer))!=-1){
                     for(int i=0;i<length;i=i+2){
-                        energy+=(double)(((short)buffer[i+1]<<8)|((short)buffer[i]&0xff));
                         data_length++;
                     }
                 }
-                energy/=data_length;
-                energy=Math.abs(energy);
-                energy=Math.log(energy)/Math.log(2);
+
+
                 featureDouble=new Double[TrainPresenter.FEATURE_NUM];
                 String path=FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
                 try {
-                    System.arraycopy(MFCC.mfcc(path, buffer , data_length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
-                    featureDouble[TrainPresenter.FEATURE_NUM-1]=energy;
+                    System.arraycopy(MFCC.getFeatures(path, buffer , data_length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -820,6 +843,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
             }
         }
     }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -847,7 +871,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
 
     @Override
     public void finishTrain() {
-            handler.sendEmptyMessage(MAX);
+            handler.sendEmptyMessage(MAX_NUM);
 
     }
 
@@ -875,7 +899,7 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         right++;
         total++;
         updateData();
-        lockPresenter.stopRecorder();
+        lockPresenter.stopRecord();
         handler.sendEmptyMessage(TEST_FINISH);
     }
 
@@ -885,12 +909,14 @@ public class Test2Activity extends AppCompatActivity implements TrainContract.Vi
         wrong++;
         total++;
         updateData();
-        lockPresenter.stopRecorder();
+        lockPresenter.stopRecord();
         handler.sendEmptyMessage(TEST_FINISH);
 
     }
     public void updateData(){
         rightRate=(double)right/total;
-        tv_data.setText("Total: "+total+" \r\n Right:"+right+"\r\n Wrong: "+wrong+"\r\n Correct rate: "+rightRate*100+"%");
+        if(tv_data.getText().length()>100)
+            tv_data.setText("");
+        tv_data.setText(tv_data.getText()+"\r\nTotal: "+total+" \r\n Right:"+right+"\r\n Wrong: "+wrong+"\r\n Correct rate: "+rightRate*100+"%");
     }
 }

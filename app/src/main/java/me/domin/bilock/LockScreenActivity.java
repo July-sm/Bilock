@@ -16,6 +16,8 @@ import android.media.MediaRecorder;
 import android.media.SoundPool;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.Vibrator;
 import android.support.annotation.NonNull;
 import android.support.v4.content.LocalBroadcastManager;
@@ -39,8 +41,7 @@ import com.orhanobut.dialogplus.DialogPlus;
 import com.orhanobut.dialogplus.OnClickListener;
 import com.orhanobut.dialogplus.OnItemClickListener;
 import com.orhanobut.dialogplus.ViewHolder;
-import com.romainpiel.shimmer.Shimmer;
-import com.romainpiel.shimmer.ShimmerTextView;
+
 import com.stephentuso.welcome.WelcomeHelper;
 import com.wang.avi.AVLoadingIndicatorView;
 
@@ -59,7 +60,7 @@ import permissions.dispatcher.RuntimePermissions;
 public class LockScreenActivity extends AppCompatActivity implements LockContract.View {
 
     private static final String TAG = "LockScreen";
-    ShimmerTextView mShimmerTextView;
+   // ShimmerTextView mShimmerTextView;
 //    WaveView waveView;
     Vibrator vibrator;  //手机震动器
     Intent intentToMain;
@@ -73,6 +74,15 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
 
     }
 
+    Handler handler=new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            switch ((String)msg.obj){
+                case "Fail": shake();break;
+                case "Success":soundOfUnlock();
+            }
+        }
+    };
     AVLoadingIndicatorView load;
     //    WaveRecordFragment fragment;
     ImageView imageView;
@@ -105,7 +115,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     @Override
     protected void onStop() {
         super.onStop();
-        mPresenter.stopRecorder();
+        mPresenter.stopRecord();
         finish();
     }
 
@@ -120,8 +130,8 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
  //       intentToMain = new Intent(LockScreenActivity.this, MainActivity.class);
 //        fragment = (WaveRecordFragment) getSupportFragmentManager().findFragmentById(R.id.wave_record);
         mPresenter = new LockPresenter(this);
-        mPresenter.initData();
-        mPresenter.startRecord(LockPresenter.NONE);
+//        mPresenter.initData();
+//        mPresenter.startRecord(LockPresenter.NONE);
         textView = findViewById(R.id.profile_name);
         button = findViewById(R.id.button);
         load = findViewById(R.id.load);
@@ -184,7 +194,9 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         setting.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                dialog.show();
+                //dialog.show();
+                Intent intent=new Intent(LockScreenActivity.this,Test2Activity.class);
+                startActivity(intent);
             }
         });
 
@@ -238,12 +250,12 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         Log.e(LockPresenter.TAG,"onResume is used");
         mPresenter.initData();
         Log.e(LockPresenter.TAG,"initData from onResume is used");
-      //  mPresenter.startRecord(LockPresenter.NONE);
+        mPresenter.startRecord(LockPresenter.NONE,LockPresenter.ILLEGAL);
         //用于申请该活动所有的权限
         LockScreenActivityPermissionsDispatcher.askForPermissionWithPermissionCheck(this);
         //开启线程，实时更新画面
         this.view = (DrawView) findViewById(R.id.root);
-        new Thread(new Runnable() {
+         new Thread(new Runnable() {
             public void run() {
                 while (LockScreenActivity.this.keepGoing) {
                     try {
@@ -276,7 +288,7 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
         objectAnimator.start();
         objectAnimator2.start();
 
-        vibrator.vibrate(500);
+        vibrator.vibrate(100);
     }
 
 
@@ -295,14 +307,21 @@ public class LockScreenActivity extends AppCompatActivity implements LockContrac
     public void unlockSuccess() {
         Toast.makeText(LockScreenActivity.this, "Welcome", Toast.LENGTH_SHORT).show();
         soundOfUnlock();
-        mPresenter.stopRecorder();
-//        System.exit(0);
-        Intent intent = new Intent(LockScreenActivity.this, Test2Activity.class);
-        startActivity(intent);
+        /*Message msg=new Message();
+        msg.obj="Success";
+        handler.sendMessage(msg);
+*/
+        mPresenter.stopRecord();
+        System.exit(0);
+        /*Intent intent = new Intent(LockScreenActivity.this, Test2Activity.class);
+        startActivity(intent);*/
     }
 
     @Override
     public void unlockFail() {
+        /*Message msg=new Message();
+        msg.obj="Fail";
+        handler.sendMessage(msg);*/
         shake();
         //Toast.makeText(LockScreenActivity.this, "Wrong Pin code", Toast.LENGTH_SHORT).show();
        // mPresenter.initData();

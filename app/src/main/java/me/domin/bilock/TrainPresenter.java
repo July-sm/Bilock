@@ -62,6 +62,7 @@ public class TrainPresenter implements TrainContract.Presenter{
     public static final int SUM=2;
     public static final int MEAN=3;
     public static final int SD=4;
+    public static final int MAX=5;
 
     static double[][] values;
     static int[] user;
@@ -79,7 +80,7 @@ public class TrainPresenter implements TrainContract.Presenter{
     int readChunkSize = fftlen;  // Every hopLen one fft result (overlapped analyze window)
     short[] audioSamples = new short[readChunkSize];
     int bufferSampleSize = Math.max(minBytes / 2, fftlen / 2) * 2;
-    final static int FEATURE_NUM=MFCC.LEN_MELREC+1;
+    final static int FEATURE_NUM=MFCC.LEN_MELREC;
 
     @SuppressLint("SetTextI18n")
     @NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO})
@@ -183,6 +184,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 case MEAN: values=mean_normal(values,min,max,count);break;
                 case SUM:     values=sum_normal(values,sum,count);break;
                 case SD: values=sd_normal(values,sd,count);break;
+                case MAX: values=max_normal(values,max,count);break;
                 default:;
             }
 
@@ -219,7 +221,7 @@ public class TrainPresenter implements TrainContract.Presenter{
             Log.e(TAG, "trainModel: error" );
         }*/
 
-        view.finishTrain();
+        //view.finishTrain();
     }
 
     public static double ave_dis=0,max_dis=0,min_dis=10000;
@@ -359,7 +361,7 @@ public class TrainPresenter implements TrainContract.Presenter{
         }
         try {
             MFCC.svmTrain(n);
-            view.finishTrain();
+            //view.finishTrain();
         }catch (IOException e){
             Log.e(TAG, "trainModel: error" );
         }
@@ -432,6 +434,14 @@ public class TrainPresenter implements TrainContract.Presenter{
 
         return values;
     }
+    private double[][] max_normal(double[][] values,double[] max,int numOfSample){
+        for(int i=0;i<numOfSample;i++){
+            for(int j=0;j<FEATURE_NUM;j++){
+                values[i][j]=values[i][j]/max[j];
+            }
+        }
+        return values;
+    }
 
 
     /**
@@ -468,7 +478,7 @@ public class TrainPresenter implements TrainContract.Presenter{
                 int[] signal = wavWriter.getSignal();
                 BufferedWriter bw = null;
                 //get average energy
-                double energy = getEnergy(signal);
+                //double energy = getEnergy(signal);
 
 
                 byte[] buffer = new byte[signal.length * 2];
@@ -492,12 +502,15 @@ public class TrainPresenter implements TrainContract.Presenter{
                     修改日期：2019/10/14
                     修改内容：将平均能量算入特征值之一
                  */
+                /*
+                修改日期：2019/12/4
+                修改内容：去掉平均能量
+                 */
                 Double[] featureDouble = new Double[FEATURE_NUM];
                 String path = FileUtil.getFilePathName(FileUtil.MODEL_RECORD);
                 try {
 
-                    System.arraycopy( MFCC.mfcc(path, buffer, signal.length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
-                    featureDouble[FEATURE_NUM-1]=energy;
+                    System.arraycopy( MFCC.getFeatures(path, buffer, signal.length, 44100),0,featureDouble,0,MFCC.LEN_MELREC);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

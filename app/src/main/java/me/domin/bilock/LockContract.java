@@ -32,7 +32,7 @@ public interface LockContract  {
 
 //        void trainData();
 
-        void startRecord(int type);
+        void startRecord(int type,int user);
 
         void initData();
 
@@ -44,8 +44,6 @@ public interface LockContract  {
 
         boolean hasModel();
 
-        boolean isRecordSuccess();
 
-        void writeModel() throws IOException;
     }
 }

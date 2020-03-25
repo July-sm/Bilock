@@ -35,6 +35,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -77,6 +79,9 @@ public class LockPresenter implements LockContract.Presenter {
     public static final int SUM=2;
     public static final int MEAN=3;
     public static final int SD=4;
+    public static final int LEGAL=10;
+    public static final int ILLEGAL=11;
+
     static int FEATURE_NUM=TrainPresenter.FEATURE_NUM;
 
     private LockContract.View mLockView;
@@ -109,12 +114,6 @@ public class LockPresenter implements LockContract.Presenter {
         bufferSampleSize = (int) Math.ceil(1.0 * sampleRate / bufferSampleSize) * bufferSampleSize;
     }
 
-    public void stopRecorder() {
-        isRecord = false;
-        record.stop();
-        record.release();
-
-    }
 
     @Override
     public void svmTrain() {
@@ -127,15 +126,26 @@ public class LockPresenter implements LockContract.Presenter {
 
     @Override
     public void stopRecord() {
-
+        if(task!=null&&!task.isCancelled()){
+            task.cancel(true);
+        }
+        isRecord = false;
+        if(record!=null) {
+            record.stop();
+            record.release();
+        }
     }
 
+    int tester=10;
     //修改日期：2019/10/6 将LockPresenter开始的步骤封装到该方法中，需要传入数据处理的方法，UI 直接调用就行
     @Override
-    public void startRecord(int type) {
+    public void startRecord(int type,int tester) {
+        isRecord=true;
         initRecorder();
         currentRecordTaskNew();
         this.type=type;
+        this.tester=tester;
+
     }
 
 
@@ -144,7 +154,7 @@ public class LockPresenter implements LockContract.Presenter {
      int data_num=0;
     public void initData(){
         Log.d(TAG,"initdata is used");
-        String path=FileUtil.getFilePathName(FileUtil.MODEL_DATA);
+        String path=FileUtil.getFilePathName(FileUtil.MODEL_DATA2);
         try{
             BufferedReader br=new BufferedReader(new FileReader(path));
             int line_num=0;
@@ -183,6 +193,9 @@ public class LockPresenter implements LockContract.Presenter {
         isRecord = true;
         task=(new CurrentRecordTaskNew());
         task.execute();
+        /*ExecutorService executor = Executors.newFixedThreadPool(3);
+        executor.execute(new CurrentRecordTaskByRun());*/
+
     }
 
 
@@ -201,108 +214,6 @@ public class LockPresenter implements LockContract.Presenter {
         return false;
     }
 
-
-
-    /**
-     　　* @Title: isRecordSuccess
-     　　* @Description:    判断录音是否可用，暂时没用到
-     　　* @param void
-     　　* @return void
-     　　*/
-    @Override
-    public boolean isRecordSuccess() {
-
-        File file = new File(FileUtil.getFilePathName(FileUtil.TEST_WAV));
-
-        InputStream in = null;
-        try {
-            in = new FileInputStream(file);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-
-        //波形出错
-        mWaveReader = new WaveFileReader(" ", in);
-
-        int[][] buffer = mWaveReader.getData();
-
-        //将buffer转为double
-        double[] signal = new double[buffer[0].length];
-        //归一化
-        for (int i = 0; i < buffer[0].length; i++) {
-            signal[i] = buffer[0][i];
-        }
-
-        //得到峰值索引
-        int result[] = getPeaks(signal);
-
-        //得到峰值之间的数据
-        Double[] featureDouble = null;
-        double[] bufferBetween = getBufferBetween(result[0], result[1], signal);
-        Log.e(TAG, "isRecordSuccess: 0 = " + signal[result[0]]);
-        Log.e(TAG, "isRecordSuccess: 1 = " + signal[result[1]]);
-
-        Log.e(TAG, "isRecordSuccess: buffer len = " + bufferBetween.length);
-
-        try {
-            BufferedWriter bw = createBufferedWriter( FileUtil.getFilePathName(FileUtil.TOUCH));
-            for (int i = 0; i < bufferBetween.length; i++) {
-                bw.write(bufferBetween[i] + " ");
-            }
-            bw.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        /*
-            修改时间：2019/6/5
-            修改内容：改变文件路径
-            修改人：July
-         */
-     /*   try {
-            featureDouble = MFCC.mfcc(FileUtil.getFilePathName(FileUtil.TEST_RECORD),buffer , bufferBetween.length, 44100);
-//            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }*/
-//        featureDouble=mean_normal(featureDouble);
-//        normalizationData(maxBuffer, minBuffer, featureDouble);
-
-//        File file2 = new File(dictionaryPath + "testRecord.txt");
-        BufferedWriter bw = null;
-        /*
-            修改时间：2019/6/5
-            修改内容：改变文件路径
-            修改人：July
-         */
-
-        String path=FileUtil.getFilePathName(FileUtil.TEST_FEATURE);
-        try {
-            bw = createBufferedWriter(path);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        //将所有MFCC特征写入文件
-        //将数据存入文件
-//            Log.d(TAG, "writeModel: flag = " + flag + " len = " + feature.length);
-        writeData(featureDouble, bw);
-
-        try {
-            return (MFCC.svmPredict(path)) == 1;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-//        file.delete();
-
-        return false;
-    }
-
-
-
-    @Override
-    public void writeModel() throws IOException {
-
-    }
 
 
     private int[] getPeaks(double[] signal) {
@@ -460,6 +371,7 @@ public class LockPresenter implements LockContract.Presenter {
     class CurrentRecordTaskNew extends AsyncTask<Void, Boolean, Void> {
         WavWriter wavWriter = new WavWriter(WavWriter.TEST, sampleRate);
 
+
         @SuppressLint("NewApi")
         @Override
         /**  
@@ -491,6 +403,7 @@ public class LockPresenter implements LockContract.Presenter {
                 if (!isRecord) {
                     record.stop();
                     record.release();
+                   // wavWriter.stop();
                     return null;
                 }
                 //获取wavWriter提取好的声音峰值
@@ -498,10 +411,12 @@ public class LockPresenter implements LockContract.Presenter {
 
                 BufferedWriter bw = null;
                 //让wavwriter更新wav文件长度信息
-                stop();
-                double energy = getEnergy(signal);
+                wavWriter.stop();
+                //double energy = getEnergy(signal);
+                Log.d(TAG," i am here");
 
                 //将int类型的声音数据转换为double类型数据
+
                 byte[] buffer = new byte[signal.length * 2];
                 for (int i = 0; i < signal.length; i++) {
                     buffer[2 * i] = (byte) (signal[i] & 0xff);
@@ -515,7 +430,7 @@ public class LockPresenter implements LockContract.Presenter {
                 try {
                     System.arraycopy(getMFCCFeatures(recordPath, buffer, signal.length),
                             0, featureDouble, 0, MFCC.LEN_MELREC);
-                    featureDouble[FEATURE_NUM - 1] = energy;
+                    //featureDouble[FEATURE_NUM - 1] = energy;
                     //       featureDouble=z_score(featureDouble);
                     // featureDouble=sum_normal(featureDouble);
                     //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
@@ -551,7 +466,7 @@ public class LockPresenter implements LockContract.Presenter {
                         e.printStackTrace();
                     }*/
 
-                if (ONE_CLASS_KNN(featureDouble, type)) {
+                if (ONE_CLASS_KNN(featureDouble, type,tester)) {
                     publishProgress(true);
                 } else {
                     publishProgress(false);
@@ -564,7 +479,7 @@ public class LockPresenter implements LockContract.Presenter {
             File file=new File(path);
             File parent=new File(file.getParent());
             parent.mkdirs();
-            return MFCC.mfcc(path, buffer, length, 44100);
+            return MFCC.getFeatures(path, buffer, length, 44100);
 
         }
         public double getEnergy(int[] signal){
@@ -618,12 +533,12 @@ public class LockPresenter implements LockContract.Presenter {
                     illegal_count++;
             }
             Log.d(TAG,"The number of legal point:"+Integer.toString(legal_count));
-            if(legal_count>illegal_count)
+            if(legal_count>illegal_count-1)
                 return true;
             else
                 return false;
         }
-        public boolean ONE_CLASS_KNN(Double[] features,final int normal_type){
+        public boolean ONE_CLASS_KNN(Double[] features,final int normal_type,final int tester){
             Log.d(TAG,"One class knn is used");
             switch(normal_type){
                 case Z_SCORE:  features=z_score(features);break;
@@ -643,11 +558,21 @@ public class LockPresenter implements LockContract.Presenter {
             }
             ave_dis/=user_count;
             Log.d(TAG,"ave_dis:"+ave_dis);
-            if(ave_dis<ave_distance+(max_distance-ave_distance)/3  ) {
-                return true;
+            if(tester==LEGAL){
+                if(ave_dis<ave_distance+(max_distance-ave_distance)/3  ) {
+                    return true;
+                }else{
+                    return false;
+                }
             }else{
-                return false;
+                if(ave_dis<ave_distance+(max_distance-ave_distance)/5  ) {
+                    return true;
+                }else{
+                    return false;
+                }
+               //return false;
             }
+
 
         }
 
@@ -717,9 +642,260 @@ public class LockPresenter implements LockContract.Presenter {
                 mLockView.unlockSuccess();
             else mLockView.unlockFail();
         }
-        void stop() {
-            wavWriter.stop();
-        }
+
     }
 
+    class CurrentRecordTaskByRun implements Runnable{
+        WavWriter wavWriter = new WavWriter(WavWriter.TEST, sampleRate);
+
+        @Override
+        public void run() {
+            Log.d(TAG, "Currenttask is made"+Thread.currentThread().getId());
+            while(true) {
+                wavWriter.start();
+
+                int max = 0;
+                int num = 0;
+                //max < MAX_NOISE
+                //一直读取录音数据，直到获取两个在阈值范围内的峰值，视作牙齿咬合声音
+                while (num != 2 && isRecord) {
+                    numOfReadShort = record.read(audioSamples, 0, readChunkSize);   // pulling
+                    max = wavWriter.pushAudioShortNew(audioSamples, numOfReadShort);  // Maybe move this to another thread?
+                    mLockView.updateMax(max);
+                    if (max == -1)
+                        num++;
+                }
+
+                if (!isRecord) {
+                    record.stop();
+                    record.release();
+                    // wavWriter.stop();
+
+                }
+                //获取wavWriter提取好的声音峰值
+                int[] signal = wavWriter.getSignal();
+
+                BufferedWriter bw = null;
+                //让wavwriter更新wav文件长度信息
+                wavWriter.stop();
+                //double energy = getEnergy(signal);
+                Log.d(TAG, " i am here");
+
+                //将int类型的声音数据转换为double类型数据
+
+                byte[] buffer = new byte[signal.length * 2];
+                for (int i = 0; i < signal.length; i++) {
+                    buffer[2 * i] = (byte) (signal[i] & 0xff);
+                    buffer[2 * i + 1] = (byte) ((signal[i] >> 8) & 0xff);
+                }
+
+
+                //用MFCC获取声音的特征值，存入featureDouble数组中
+                Double[] featureDouble = new Double[FEATURE_NUM];
+                String recordPath = FileUtil.getFilePathName(FileUtil.TEST_RECORD);
+                try {
+                    System.arraycopy(getMFCCFeatures(recordPath, buffer, signal.length),
+                            0, featureDouble, 0, MFCC.LEN_MELREC);
+                    //featureDouble[FEATURE_NUM - 1] = energy;
+                    //       featureDouble=z_score(featureDouble);
+                    // featureDouble=sum_normal(featureDouble);
+                    //            featureDouble[featureDouble.length - 1] = getRMS(signal, result);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                //        normalizationData(maxBuffer, minBuffer, featureDouble);
+
+                //        File file2 = new File(dictionaryPath + "testRecord.txt");
+                String path = FileUtil.getFilePathName(FileUtil.TEST_FEATURE);
+                try {
+                    bw = createBufferedWriter(path);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+
+                //将所有MFCC特征写入文件
+                //将数据存入文件
+                //            Log.d(TAG, "writeModel: flag = " + flag + " len = " + feature.length);
+
+                writeData(featureDouble, bw);
+
+                if (ONE_CLASS_KNN(featureDouble, type, tester)) {
+                    publishProgress(true);
+                    Log.d(TAG, "CurrentTask come to the end"+Thread.currentThread().getId());
+                    return;
+                } else {
+                    publishProgress(false);
+                }
+            }
+
+
+            //return ;
+        }
+        public Double[] getMFCCFeatures(String path,byte[] buffer,int length) throws IOException{
+            File file=new File(path);
+            File parent=new File(file.getParent());
+            parent.mkdirs();
+            return MFCC.getFeatures(path, buffer, length, 44100);
+
+        }
+        public double getEnergy(int[] signal){
+            double energy=0;
+            for(int i=0;i<signal.length;i++){
+                energy+=signal[i];
+            }
+            energy/=signal.length;
+            energy=Math.abs(energy);
+            energy=Math.log(energy)/Math.log(2);
+            return energy;
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.N)
+        public boolean KNN(Double[] features,final int normal_type){
+            switch(normal_type){
+                case Z_SCORE:  features=z_score(features);break;
+                case MEAN: features=mean_normal(features);break;
+                case SUM:    features=sum_normal(features);break;
+                case SD: features=sd_normal(features);break;
+                default:;
+            }
+            double[][] values=TrainPresenter.values;
+            int[] user=TrainPresenter.user;
+            ArrayList list=new ArrayList();
+            for(int i=0;i<TrainPresenter.count;i++){
+                Test2Activity.Point p=new Test2Activity.Point(values[i],user[i]);
+                p.calDis(features);
+                list.add(p);
+            }
+            if(list.size()==0)
+                return false;
+            list.sort(new Comparator() {
+                @Override
+                public int compare(Object o, Object t1) {
+                    double dis1=((Test2Activity.Point)o).distance;
+                    double dis2=((Test2Activity.Point)t1).distance;
+                    if(dis1>dis2)
+                        return 1;
+                    else if(dis1==dis2)
+                        return 0;
+                    else
+                        return -1;
+                }
+            });
+            int legal_count=0,illegal_count=0;
+            for(int i=0;i<10;i++){
+                if(((Test2Activity.Point)list.get(i)).user==1)
+                    legal_count++;
+                else
+                    illegal_count++;
+            }
+            Log.d(TAG,"The number of legal point:"+Integer.toString(legal_count));
+            if(legal_count>illegal_count-1)
+                return true;
+            else
+                return false;
+        }
+        public boolean ONE_CLASS_KNN(Double[] features,final int normal_type,final int tester){
+            Log.d(TAG,"One class knn is used");
+            switch(normal_type){
+                case Z_SCORE:  features=z_score(features);break;
+                case MEAN: features=mean_normal(features);break;
+                case SUM:    features=sum_normal(features);break;
+                case SD: features=sd_normal(features);break;
+                default:;
+            }
+            ArrayList list=new ArrayList();
+            Log.d(TAG,"ave:"+ave_distance);
+            Log.d(TAG,"max:"+max_distance);
+            int user_count=0;
+            double ave_dis=0;
+            for(int i=0;i<data_num;i++){
+                ave_dis+=getDis(features,values[i]);
+                user_count++;
+            }
+            ave_dis/=user_count;
+            Log.d(TAG,"ave_dis:"+ave_dis);
+            if(tester==LEGAL){
+                if(ave_dis<ave_distance+(max_distance-ave_distance)/0.3  ) {
+                    return true;
+                }else{
+                    return false;
+                }
+            }else{
+                if(ave_dis<ave_distance+(max_distance-ave_distance)/6  ) {
+                    return true;
+                }else{
+                    return false;
+                }
+            }
+
+
+        }
+
+        /*
+    2019/10/14 调整1.2.3.6.7.8特征比重，降低其他比重
+ */
+        public double getDis(Double[] p1,double[] p2){
+            double dis=0;
+            for(int i=0;i<FEATURE_NUM;i++){
+                switch(i+1) {
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 6:
+                    case 7:
+                    case 8:
+                        dis += 1.2 * Math.pow(p1[i] - p2[i], 2);
+                    default:
+                        dis += 0.8 * Math.pow(p1[i] - p2[i], 2);
+                }
+            }
+            dis=Math.sqrt(dis);
+            return dis;
+        }
+        private Double[] sd_normal(Double[] feature){
+            double[] sd=TrainPresenter.sd;
+            for(int i=0;i<FEATURE_NUM;i++){
+                feature[i]=feature[i]/sd[i];
+            }
+            return feature;
+        }
+        private Double[] sum_normal(Double[] feature){
+            double[] sum=TrainPresenter.sum;
+            for(int i=0;i<FEATURE_NUM;i++){
+                feature[i]=feature[i]/sum[i];
+            }
+            return feature;
+        }
+        private Double[] mean_normal(Double[] feature){
+            double[] max=TrainPresenter.max;
+            double[] min=TrainPresenter.min;
+            for(int i=0;i<FEATURE_NUM;i++){
+                feature[i]=(feature[i]-min[i])/(max[i]-min[i]);
+            }
+            return feature;
+        }
+        private Double[] z_score(Double[] feature){
+            double[] variance=TrainPresenter.variance;
+            double[] average=TrainPresenter.average;
+            for(int i=0;i<FEATURE_NUM;i++){
+                feature[i]=(feature[i]-average[i])/variance[i];
+            }
+            return feature;
+        }
+
+        /**
+         * @Title: onProgressUpdate
+        　　* @Description: 根据publishProgress方法传入的value值更新UI线程
+        　　* @param [values]
+        　　* @return void
+        　　* @throws
+        　　*/
+        protected void publishProgress(boolean value) {
+            if (value)
+                mLockView.unlockSuccess();
+            else mLockView.unlockFail();
+        }
+    }
 }

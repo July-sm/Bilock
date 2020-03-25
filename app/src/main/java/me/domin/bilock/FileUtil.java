@@ -32,6 +32,9 @@ public class FileUtil {
     public static final int TEST_PATH=9;
     public static final int FEATURE_USER_PATH=11;
     public static final int FEATURE_OTHER_PATH=12;
+    //测试用
+    public static final int MODEL_FEATURE2=22;
+    public static final int MODEL_DATA2=23;
 
     public static String currentTime="";
 
@@ -70,7 +73,8 @@ public class FileUtil {
             case 9: return absolutePath+temp;
             case 10: return absolutePath+userName+mFileNameMap.get(type);
             case 12: return absolutePath+userName+otherName;
-
+            case MODEL_DATA2: return absolutePath+"user/"+mFileNameMap.get(MODEL_DATA);
+            case MODEL_FEATURE2: return absolutePath+"user/"+mFileNameMap.get(MODEL_FEATURE);
 
 
         }

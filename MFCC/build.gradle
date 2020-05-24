@@ -5,8 +5,13 @@ android {
 
     defaultConfig {
         //applicationId "com.example.administrator.mfcc"
+<<<<<<< Updated upstream
         minSdkVersion 15
         targetSdkVersion 28
+=======
+        minSdkVersion 23
+        targetSdkVersion 26
+>>>>>>> Stashed changes
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
@@ -24,7 +29,7 @@ android {
     }
     externalNativeBuild {
         cmake {
-            path "CMakeLists.txt"
+            version "3.10.2"
         }
     }
 }
